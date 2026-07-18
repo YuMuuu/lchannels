@@ -67,8 +67,9 @@ object Local extends App {
 
   val shop = lchannels.examples.sleepingbarber.barbershop.Shop(maxSeats)
 
-  val customerObjs = for (name <- customers)
-    yield new lchannels.examples.sleepingbarber.customer.Customer(name, shop)
+  val customerObjs =
+    for (name <- customers)
+      yield new lchannels.examples.sleepingbarber.customer.Customer(name, shop)
 
   for (c <- customerObjs) c.join()
   println("*** All customers served - shutting down barbershop")

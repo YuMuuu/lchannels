@@ -51,16 +51,16 @@ object ChatServer {
   import lchannels.examples.chat.protocol.internal.auth.{
     GetAuthentication => IntGetAuth
   }
-  def apply(isfactory: () => (In[IntGetSession], Out[IntGetSession]),
-            ffactory: () => (In[GetSession], Out[GetSession]),
-            iafactory: () => (In[IntGetAuth], Out[IntGetAuth]),
-            afactory: () => (In[auth.Authenticate], Out[auth.Authenticate]),
-            lfactory: () => (In[IntCreateSession], Out[IntCreateSession]),
-            sfactory: () => (In[session.Command], Out[session.Command]),
-            rfactory: () => (In[room.Messages], Out[room.Messages]),
-            cfactory: () => (In[roomctl.Control], Out[roomctl.Control]))(
-      implicit ec: ExecutionContext,
-      timeout: Duration): Frontend = {
+  def apply(
+      isfactory: () => (In[IntGetSession], Out[IntGetSession]),
+      ffactory: () => (In[GetSession], Out[GetSession]),
+      iafactory: () => (In[IntGetAuth], Out[IntGetAuth]),
+      afactory: () => (In[auth.Authenticate], Out[auth.Authenticate]),
+      lfactory: () => (In[IntCreateSession], Out[IntCreateSession]),
+      sfactory: () => (In[session.Command], Out[session.Command]),
+      rfactory: () => (In[room.Messages], Out[room.Messages]),
+      cfactory: () => (In[roomctl.Control], Out[roomctl.Control])
+  )(implicit ec: ExecutionContext, timeout: Duration): Frontend = {
     val (isin, isout) = isfactory() // Frontend - chat server channels
     val (ain, aout) = iafactory() // Frontend - auth server channels
     val (lin, lout) = lfactory() // Auth - chat server channels
@@ -68,10 +68,11 @@ object ChatServer {
     val chat = new ChatServer(isin, lin, sfactory, rfactory, cfactory)
     val auth = new AuthServer(ain, lout, afactory)
 
-    class OverFrontend(isout: Out[IntGetSession],
-                       aout: Out[IntGetAuth],
-                       ffactory: () => (In[GetSession], Out[GetSession]))
-        extends Frontend(isout, aout, ffactory) {
+    class OverFrontend(
+        isout: Out[IntGetSession],
+        aout: Out[IntGetAuth],
+        ffactory: () => (In[GetSession], Out[GetSession])
+    ) extends Frontend(isout, aout, ffactory) {
       override def quit() = {
         super.quit()
         chat.quit()
@@ -96,23 +97,29 @@ object ChatServer {
   }
 }
 
-protected case class RoomSubscription(id: Int, // Random
-                                      msgc: Out[room.Messages])
-protected case class Session(username: String,
-                             chan: In[session.Command],
-                             rooms: MMap[String, // Room joined by username
-                                         RoomSubscription])
+protected case class RoomSubscription(
+    id: Int, // Random
+    msgc: Out[room.Messages]
+)
+protected case class Session(
+    username: String,
+    chan: In[session.Command],
+    rooms: MMap[
+      String, // Room joined by username
+      RoomSubscription
+    ]
+)
 
 private case class SessionCommand(id: Int, cmd: session.Command)
 
 /** Chat server frontend */
-class ChatServer(frontend: In[IntGetSession],
-                 authSrv: In[IntCreateSession],
-                 sfactory: () => (In[session.Command], Out[session.Command]),
-                 rfactory: () => (In[room.Messages], Out[room.Messages]),
-                 cfactory: () => (In[roomctl.Control], Out[roomctl.Control]))(
-    implicit ec: ExecutionContext,
-    timeout: Duration)
+class ChatServer(
+    frontend: In[IntGetSession],
+    authSrv: In[IntCreateSession],
+    sfactory: () => (In[session.Command], Out[session.Command]),
+    rfactory: () => (In[room.Messages], Out[room.Messages]),
+    cfactory: () => (In[roomctl.Control], Out[roomctl.Control])
+)(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
@@ -160,8 +167,9 @@ class ChatServer(frontend: In[IntGetSession],
   }
 
   // NOTE: frontendLoop is not tail-recursive --- left as is for simplicity
-  private def frontendLoop(frontend: In[IntGetSession])(
-      implicit timeout: Duration): Unit = {
+  private def frontendLoop(
+      frontend: In[IntGetSession]
+  )(implicit timeout: Duration): Unit = {
     try {
       frontend ? { req =>
         logDebug(f"got ${req}")
@@ -191,8 +199,9 @@ class ChatServer(frontend: In[IntGetSession],
 
   private val rnd = new scala.util.Random()
 
-  private def createSessionLoop(authSrv: In[IntCreateSession])(
-      implicit timeout: Duration): Unit = {
+  private def createSessionLoop(
+      authSrv: In[IntCreateSession]
+  )(implicit timeout: Duration): Unit = {
     try {
       authSrv ? { req =>
         logDebug(f"got ${req}, preparing new session")
@@ -205,7 +214,9 @@ class ChatServer(frontend: In[IntGetSession],
             for (id <- sessions.keys if (sessions(id).username == req.username))
               yield recoverSession(id)
           }
-          assert(cleanedChans.size <= 1) // At most 1 session should be recovered
+          assert(
+            cleanedChans.size <= 1
+          ) // At most 1 session should be recovered
           if (cleanedChans.size == 1) {
             // Some session was cleaned and replaced, let's use the channel
             res = IntNewSession(cleanedChans.iterator.next()) _
@@ -274,9 +285,11 @@ class ChatServer(frontend: In[IntGetSession],
   }
 
   // Throw a NoSuchElementException if session id, chat and subscr. don't exist
-  protected[server] def assertSessionIdAndChat(id: Int,
-                                               roomName: String,
-                                               subscrId: Int): Unit = {
+  protected[server] def assertSessionIdAndChat(
+      id: Int,
+      roomName: String,
+      subscrId: Int
+  ): Unit = {
     sessions.synchronized {
       if (sessions(id).rooms(roomName).id == subscrId) {
         ()
@@ -298,9 +311,11 @@ class ChatServer(frontend: In[IntGetSession],
 
   // Add a chat room subscription to the given session.
   // Return the subscription id
-  protected[server] def addChatRoom(id: Int,
-                                    rname: String,
-                                    msgc: Out[room.Messages]): Int = {
+  protected[server] def addChatRoom(
+      id: Int,
+      rname: String,
+      msgc: Out[room.Messages]
+  ): Int = {
     val subscrId = rnd.nextInt()
     sessions.synchronized {
       sessions(id).rooms(rname) = RoomSubscription(subscrId, msgc)
@@ -321,12 +336,15 @@ class ChatServer(frontend: In[IntGetSession],
   }
 
   // Dispatch a message to all users of the given chatroom
-  protected[server] def dispatchMessage(rName: String,
-                                        username: String,
-                                        text: String): Unit = {
+  protected[server] def dispatchMessage(
+      rName: String,
+      username: String,
+      text: String
+  ): Unit = {
     sessions.synchronized {
-      val subscrS = for ((_, s) <- sessions if s.rooms.keySet.contains(rName))
-        yield s
+      val subscrS =
+        for ((_, s) <- sessions if s.rooms.keySet.contains(rName))
+          yield s
       for (subS <- subscrS) {
         val subC = subS.rooms(rName)
         // Dispatch the message to the subscribed room channel...
@@ -338,18 +356,19 @@ class ChatServer(frontend: In[IntGetSession],
   }
 }
 
-private case class RoomCtlRequest(id: Int, // Session id
-                                  room: String,
-                                  subscrId: Int, // Room subscription id
-                                  cmd: roomctl.Control)
+private case class RoomCtlRequest(
+    id: Int, // Session id
+    room: String,
+    subscrId: Int, // Room subscription id
+    cmd: roomctl.Control
+)
 
 private class SessionHandler(
     chatServer: ChatServer,
     requests: Channel[SessionCommand],
     rfactory: () => (In[room.Messages], Out[room.Messages]),
-    cfactory: () => (In[roomctl.Control], Out[roomctl.Control]))(
-    implicit ec: ExecutionContext,
-    timeout: Duration)
+    cfactory: () => (In[roomctl.Control], Out[roomctl.Control])
+)(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
@@ -401,7 +420,8 @@ private class SessionHandler(
             chatServer.dispatchMessage(
               room,
               chatServer.serverName,
-              f"${chatServer.getUsername(req.id)} joined ${room}")
+              f"${chatServer.getUsername(req.id)} joined ${room}"
+            )
             reschedule(req.id, c)
           }
         }
@@ -432,7 +452,8 @@ private class SessionHandler(
 
   private def joinRoom(
       id: Int,
-      rname: String): (In[room.Messages], Out[roomctl.Control]) = {
+      rname: String
+  ): (In[room.Messages], Out[roomctl.Control]) = {
     val (rin, rout) = rfactory()
     val (cin, cout) = cfactory()
 
@@ -459,16 +480,20 @@ private class SessionHandler(
   }
 
   // Throw a NoSuchElementException if session id, chat and subscr. don't exist
-  protected[server] def assertSessionIdAndChat(id: Int,
-                                               roomName: String,
-                                               subscrId: Int): Unit = {
+  protected[server] def assertSessionIdAndChat(
+      id: Int,
+      roomName: String,
+      subscrId: Int
+  ): Unit = {
     chatServer.assertSessionIdAndChat(id, roomName, subscrId)
   }
 
   // Dispatch a message to all users of the given chatroom
-  protected[server] def dispatchMessage(room: String,
-                                        username: String,
-                                        text: String): Unit = {
+  protected[server] def dispatchMessage(
+      room: String,
+      username: String,
+      text: String
+  ): Unit = {
     chatServer.dispatchMessage(room, username, text)
   }
 
@@ -483,10 +508,10 @@ private class SessionHandler(
   }
 }
 
-private class RoomHandler(sessionHandler: SessionHandler,
-                          requests: Channel[RoomCtlRequest])(
-    implicit ec: ExecutionContext,
-    timeout: Duration)
+private class RoomHandler(
+    sessionHandler: SessionHandler,
+    requests: Channel[RoomCtlRequest]
+)(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
@@ -516,7 +541,8 @@ private class RoomHandler(sessionHandler: SessionHandler,
                 sessionHandler.dispatchMessage(
                   rname,
                   sessionHandler.serverName,
-                  f"${sessionHandler.getUsername(sId)} left ${rname}")
+                  f"${sessionHandler.getUsername(sId)} left ${rname}"
+                )
                 serverLoop()
               }
               case m @ roomctl.Ping(msg) => {
@@ -543,15 +569,18 @@ private class RoomHandler(sessionHandler: SessionHandler,
       }
     }
 
-    def reschedule(sId: Int,
-                   roomName: String,
-                   subscrId: Int,
-                   c: In[roomctl.Control]): Unit = {
+    def reschedule(
+        sId: Int,
+        roomName: String,
+        subscrId: Int,
+        c: In[roomctl.Control]
+    ): Unit = {
       // Async. add next request to FIFO, and then loop
       c.future.onComplete {
         case Success(ctl) => {
           sessionHandler.queueRoomCtlRequest(
-            Success(RoomCtlRequest(sId, roomName, subscrId, ctl)))
+            Success(RoomCtlRequest(sId, roomName, subscrId, ctl))
+          )
         }
         case Failure(e) => sessionHandler.queueRoomCtlRequest(Failure(e))
       }

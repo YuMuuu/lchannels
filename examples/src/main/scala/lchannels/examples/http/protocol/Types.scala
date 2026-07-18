@@ -26,7 +26,9 @@
 
 /** Auxiliary types for the HTTP protocol server.
   *
-  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  * @author
+  *   Alceste Scalas <alceste.scalas@imperial.ac.uk>
+  */
 package lchannels.examples.http.protocol.types
 
 sealed abstract class Version
@@ -39,7 +41,7 @@ object Version {
   /** Construct Version object from a string, as found in an HTTP request. */
   def apply(v: String) = v match {
     case "HTTP/1.1" => Http11
-    case _          => throw new RuntimeException(f"Unsupported HTTP version: ${v}")
+    case _ => throw new RuntimeException(f"Unsupported HTTP version: ${v}")
   }
 }
 

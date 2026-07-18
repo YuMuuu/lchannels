@@ -24,12 +24,14 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-/** Binary protocol classes for the HTTP server.
-  *  The classes in this package have been automatically generated from the
-  *  Scribble HTTP protocol definition:
-  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Http.scr
+/** Binary protocol classes for the HTTP server. The classes in this package
+  * have been automatically generated from the Scribble HTTP protocol
+  * definition:
+  * https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Http.scr
   *
-  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  * @author
+  *   Alceste Scalas <alceste.scalas@imperial.ac.uk>
+  */
 package lchannels.examples.http.protocol.binary
 
 import lchannels._
@@ -96,14 +98,18 @@ import java.time.format.DateTimeFormatter.{RFC_1123_DATE_TIME => RFCDate}
 
 /** Socket manager for the HTTP protocol.
   *
-  *  @param socket the socket managed by the instance
-  *  @param relaxHeaders if true, skip unmanaged HTTP headers (otherwise, error)
-  *  @param logger logging function, used to report e.g. skipped headers and other info
+  * @param socket
+  *   the socket managed by the instance
+  * @param relaxHeaders
+  *   if true, skip unmanaged HTTP headers (otherwise, error)
+  * @param logger
+  *   logging function, used to report e.g. skipped headers and other info
   */
-class HttpServerSocketManager(socket: Socket,
-                              relaxHeaders: Boolean,
-                              logger: (String) => Unit)
-    extends SocketManager(socket) {
+class HttpServerSocketManager(
+    socket: Socket,
+    relaxHeaders: Boolean,
+    logger: (String) => Unit
+) extends SocketManager(socket) {
   case class ConnectionClosed(msg: String) extends java.io.IOException(msg)
   case class ProtocolError(msg: String) extends java.io.IOException(msg)
 
@@ -135,16 +141,22 @@ class HttpServerSocketManager(socket: Socket,
 
   private val inb = new BufferedReader(new InputStreamReader(in))
   private val requestR = """(\S+) (\S+) (\S+)""".r // Start of HTTP request
-  private val acceptR = """Accept: (.+)""".r // Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-  private val acceptEncR = """Accept-Encoding: (.+)""".r // Accept-Encoding: gzip, deflate
-  private val acceptLangR = """Accept-Language: (.+)""".r // Accept-Language: en-GB,en;q=0.5
+  private val acceptR =
+    """Accept: (.+)""".r // Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+  private val acceptEncR =
+    """Accept-Encoding: (.+)""".r // Accept-Encoding: gzip, deflate
+  private val acceptLangR =
+    """Accept-Language: (.+)""".r // Accept-Language: en-GB,en;q=0.5
   private val connectionR = """Connection: (\S+)""".r // Connection: keep-alive
   private val dntR = """DNT: (\d)""".r // DNT: 1
   private val hostR = """Host: (\S+)""".r // Host: www.doc.ic.ac.uk
-  private val upgradeirR = """Upgrade-Insecure-Requests: (\d)""".r // Upgrade-Insecure-Requests: 1
-  private val useragentR = """User-Agent: (.+)""".r // User-Agent: Mozilla/5.0 (Windows NT 6.3; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0
+  private val upgradeirR =
+    """Upgrade-Insecure-Requests: (\d)""".r // Upgrade-Insecure-Requests: 1
+  private val useragentR =
+    """User-Agent: (.+)""".r // User-Agent: Mozilla/5.0 (Windows NT 6.3; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0
 
-  private val genericHeaderR = """(\S+): (.+)""".r // Generic regex for unsupported headers
+  private val genericHeaderR =
+    """(\S+): (.+)""".r // Generic regex for unsupported headers
 
   override def destreamer(): Any = {
     import java.net.URI
@@ -174,16 +186,16 @@ class HttpServerSocketManager(socket: Socket,
 
     // If we are here, then requestStarted was false
     line match {
-      case acceptR(fmts) => Accept(fmts)(SocketIn[RequestChoice](this))
+      case acceptR(fmts)    => Accept(fmts)(SocketIn[RequestChoice](this))
       case acceptEncR(encs) =>
         AcceptEncodings(encs)(SocketIn[RequestChoice](this))
       case acceptLangR(langs) =>
         AcceptLanguage(langs)(SocketIn[RequestChoice](this))
       case connectionR(conn) => Connection(conn)(SocketIn[RequestChoice](this))
-      case dntR(dnt)         => DoNotTrack(dnt == 1)(SocketIn[RequestChoice](this))
-      case hostR(host)       => Host(host)(SocketIn[RequestChoice](this))
-      case upgradeirR(up)    => UpgradeIR(up == 1)(SocketIn[RequestChoice](this))
-      case useragentR(ua)    => UserAgent(ua)(SocketIn[RequestChoice](this))
+      case dntR(dnt)      => DoNotTrack(dnt == 1)(SocketIn[RequestChoice](this))
+      case hostR(host)    => Host(host)(SocketIn[RequestChoice](this))
+      case upgradeirR(up) => UpgradeIR(up == 1)(SocketIn[RequestChoice](this))
+      case useragentR(ua) => UserAgent(ua)(SocketIn[RequestChoice](this))
 
       case genericHeaderR(h, _) if relaxHeaders => {
         // Ignore this header, and keep looking for something supported
@@ -195,7 +207,8 @@ class HttpServerSocketManager(socket: Socket,
         // The request body should now follow.
         // TODO: in this HTTP fragment, we assume GET with Content-Length=0
         RequestBody(Body("text/html", Array[Byte]()))(
-          SocketOut[HttpVersion](this))
+          SocketOut[HttpVersion](this)
+        )
       }
 
       case e => {

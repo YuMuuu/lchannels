@@ -46,11 +46,11 @@ import lchannels.examples.chat.protocol.internal.session.{
 }
 
 /** Chat server frontend */
-class AuthServer(chan: In[IntGetAuth],
-                 sessionSrv: Out[IntCreateSession],
-                 factory: () => (In[Authenticate], Out[Authenticate]))(
-    implicit ec: ExecutionContext,
-    timeout: Duration)
+class AuthServer(
+    chan: In[IntGetAuth],
+    sessionSrv: Out[IntCreateSession],
+    factory: () => (In[Authenticate], Out[Authenticate])
+)(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
@@ -76,8 +76,9 @@ class AuthServer(chan: In[IntGetAuth],
   }
 
   // Server loop for frontend interaction
-  private def serverLoop(chan: In[IntGetAuth])(
-      implicit timeout: Duration): Unit = {
+  private def serverLoop(
+      chan: In[IntGetAuth]
+  )(implicit timeout: Duration): Unit = {
     try {
       chan ? { req =>
         logDebug(f"got ${req}, creating new authentication channels")
@@ -104,7 +105,8 @@ class AuthServer(chan: In[IntGetAuth],
 
 private class Authenticator(
     requests: Channel[Authenticate],
-    sessionSrv: Out[IntCreateSession])(implicit timeout: Duration)
+    sessionSrv: Out[IntCreateSession]
+)(implicit timeout: Duration)
     extends Runnable
     with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
@@ -139,7 +141,8 @@ private class Authenticator(
   }
 
   private def serve(req: Authenticate, sessionSrv: Out[IntCreateSession])(
-      implicit timeout: Duration): Out[IntCreateSession] = {
+      implicit timeout: Duration
+  ): Out[IntCreateSession] = {
     if (accounts.contains((req.username, req.password))) {
       logDebug(f"login successful for ${req.username}, getting new session")
       (sessionSrv !! IntCreateSession(req.username) _) ? { newSess =>

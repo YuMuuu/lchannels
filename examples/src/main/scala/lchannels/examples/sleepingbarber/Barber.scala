@@ -44,7 +44,8 @@ import lchannels.examples.sleepingbarber.customer.{
 protected[barbershop] case class Available()(val cont: Out[Serve])
 
 protected[barbershop] case class Serve(chan: In[CustDescription])(
-    val cont: Out[Available])
+    val cont: Out[Available]
+)
 //////////////////////////////////////////////////////////////////////////////
 
 class Barber(shop: Out[Available])(implicit d: Duration)

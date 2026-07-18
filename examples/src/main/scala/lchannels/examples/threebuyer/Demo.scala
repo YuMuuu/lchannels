@@ -43,15 +43,19 @@ object Local extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
 
-  Demo.start(() => LocalChannel.factory[PlayAlice](),
-             () => LocalChannel.factory[PlayBob](),
-             () => LocalChannel.factory[Contrib]())
+  Demo.start(
+    () => LocalChannel.factory[PlayAlice](),
+    () => LocalChannel.factory[PlayBob](),
+    () => LocalChannel.factory[Contrib]()
+  )
 }
 
 object Demo {
-  def start(afactory: () => (In[PlayAlice], Out[PlayAlice]),
-            bfactory: () => (In[PlayBob], Out[PlayBob]),
-            cfactory: () => (In[Contrib], Out[Contrib])) = {
+  def start(
+      afactory: () => (In[PlayAlice], Out[PlayAlice]),
+      bfactory: () => (In[PlayBob], Out[PlayBob]),
+      cfactory: () => (In[Contrib], Out[Contrib])
+  ) = {
     import scala.concurrent.duration._
     implicit val timeout = 60.seconds
 

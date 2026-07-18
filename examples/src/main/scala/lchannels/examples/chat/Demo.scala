@@ -28,10 +28,12 @@ package lchannels.examples.chat.demo
 
 import scala.concurrent.duration.Duration
 
-protected case class ClientSpec(username: String,
-                                password: String,
-                                msgDelay: Duration,
-                                msgCount: Int)
+protected case class ClientSpec(
+    username: String,
+    password: String,
+    msgDelay: Duration,
+    msgCount: Int
+)
 
 object Local extends App {
   // Helper method to ease external invocation

@@ -32,8 +32,9 @@ import scala.concurrent.duration.Duration
 /** The medium of local channel endpoints. */
 case class Local()
 
-/** Simple implementation of local channel endpoints,
-  *  based on Scala `Promise`s/`Future`s. */
+/** Simple implementation of local channel endpoints, based on Scala
+  * `Promise`s/`Future`s.
+  */
 object LocalChannel {
 
   /** Create a pair of linear I/O channel endpoints, for local use. */
@@ -43,34 +44,41 @@ object LocalChannel {
     (new LocalIn[T](future), new LocalOut[T](promise))
   }
 
-  /** Spawn two functions as threads communicating via a pair of local
-    *  channel endpoints.
+  /** Spawn two functions as threads communicating via a pair of local channel
+    * endpoints.
     *
-    *  This method invokes [[factory]] to create a pair of channel endpoints
-    *  `(in,out)`, and then spawns `p1(in)` and `p2(out)`.
+    * This method invokes [[factory]] to create a pair of channel endpoints
+    * `(in,out)`, and then spawns `p1(in)` and `p2(out)`.
     *
-    *  @return A pair of `Future`s `(f1, f2)`, completed respectively when
-    *  `p1(in)` and `p2(out)` terminate.
+    * @return
+    *   A pair of `Future`s `(f1, f2)`, completed respectively when `p1(in)` and
+    *   `p2(out)` terminate.
     *
-    *  @param p1 Function using the input channel endpoint
-    *  @param p2 Function using the output channel endpoint
-    *  @param ec Execution context where the `p1` and `p2` will run
+    * @param p1
+    *   Function using the input channel endpoint
+    * @param p2
+    *   Function using the output channel endpoint
+    * @param ec
+    *   Execution context where the `p1` and `p2` will run
     */
-  def parallel[T, R1, R2](p1: LocalIn[T] => R1, p2: LocalOut[T] => R2)(
-      implicit ec: ExecutionContext): (Future[R1], Future[R2]) = {
+  def parallel[T, R1, R2](p1: LocalIn[T] => R1, p2: LocalOut[T] => R2)(implicit
+      ec: ExecutionContext
+  ): (Future[R1], Future[R2]) = {
     val (in, out) = factory[T]()
     (Future { blocking { p1(in) } }, Future { blocking { p2(out) } })
   }
 }
 
-/** Local input channel endpoint, usually created via [[LocalChannel.factory]]. */
+/** Local input channel endpoint, usually created via [[LocalChannel.factory]].
+  */
 class LocalIn[+T](val future: Future[T]) extends medium.In[Local, T] {
   override def receive(implicit atMost: Duration): T = {
     Await.result[T](future, atMost)
   }
 }
 
-/** Local output channel endpoint, usually created via [[LocalChannel.factory]]. */
+/** Local output channel endpoint, usually created via [[LocalChannel.factory]].
+  */
 class LocalOut[-T](p: Promise[T]) extends medium.Out[Local, T] {
   override def promise[U <: T] = {
     // The following cast is safe: the returned promise can only

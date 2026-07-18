@@ -24,12 +24,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-/** Multiparty protocol classes for game player C.
-  *  The classes in this package have been automatically generated from the
-  *  multiparty game protocol:
-  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
+/** Multiparty protocol classes for game player C. The classes in this package
+  * have been automatically generated from the multiparty game protocol:
+  * https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
   *
-  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  * @author
+  *   Alceste Scalas <alceste.scalas@imperial.ac.uk>
+  */
 package lchannels.examples.game.protocol.c
 
 import scala.concurrent.duration.Duration
@@ -74,8 +75,10 @@ case class MPInfoCA(a: Out[binary.InfoCA], b: In[binary.Mov1BCOrMov2BC]) {
     MPMov1BCOrMov2BC(cnt, b)
   }
 }
-case class MPMov1BCOrMov2BC(a: Out[binary.Mov1CAOrMov2CA],
-                            b: In[binary.Mov1BCOrMov2BC]) {
+case class MPMov1BCOrMov2BC(
+    a: Out[binary.Mov1CAOrMov2CA],
+    b: In[binary.Mov1BCOrMov2BC]
+) {
   def receive(implicit timeout: Duration = Duration.Inf) = {
     b.receive(timeout) match {
       case m @ binary.Mov1BC(p) => {
@@ -87,8 +90,10 @@ case class MPMov1BCOrMov2BC(a: Out[binary.Mov1CAOrMov2CA],
     }
   }
 }
-case class MPMov1CAOrMov2CA(a: Out[binary.Mov1CAOrMov2CA],
-                            b: In[binary.Mov1BCOrMov2BC]) {
+case class MPMov1CAOrMov2CA(
+    a: Out[binary.Mov1CAOrMov2CA],
+    b: In[binary.Mov1BCOrMov2BC]
+) {
   def send(v: Mov1CA) = {
     val cnt = a !! binary.Mov1CA(v.p) _
     MPMov1BCOrMov2BC(cnt, b)

@@ -24,12 +24,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-/** HTTP protocol server.
-  *  The classes in this package have been automatically generated from the
-  *  Scribble HTTP protocol definition:
-  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Http.scr
+/** HTTP protocol server. The classes in this package have been automatically
+  * generated from the Scribble HTTP protocol definition:
+  * https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Http.scr
   *
-  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  * @author
+  *   Alceste Scalas <alceste.scalas@imperial.ac.uk>
+  */
 package lchannels.examples.http.protocol.server
 
 import scala.concurrent.duration.Duration

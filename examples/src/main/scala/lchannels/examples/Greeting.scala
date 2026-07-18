@@ -61,9 +61,9 @@ object Server {
     }
   }
 
-  def serve(factory: () => (In[Start], Out[Start]))(
-      implicit ctx: ExecutionContext,
-      timeout: Duration): Out[Start] = {
+  def serve(
+      factory: () => (In[Start], Out[Start])
+  )(implicit ctx: ExecutionContext, timeout: Duration): Out[Start] = {
     val (cin, cout) = factory()
     Future { blocking { apply(cin)(timeout) } }
     cout
@@ -138,7 +138,8 @@ object Queue extends App {
   implicit val timeout = 10.seconds
 
   println(
-    "[*] Spawning local server and client 1 (using queue-based channels)...")
+    "[*] Spawning local server and client 1 (using queue-based channels)..."
+  )
   val (c1, s1) = parallel[Start, Unit, Unit](
     Server(_),
     Client1(_)
@@ -147,7 +148,8 @@ object Queue extends App {
   Await.result(s1, 10.seconds) // Wait for server termination
 
   println(
-    "\n[*] Spawning local server and client 2 (using queue-based channels)...")
+    "\n[*] Spawning local server and client 2 (using queue-based channels)..."
+  )
   val (c2, s2) = parallel[Quit, Unit, Unit](
     Server(_),
     Client2(_)
@@ -189,7 +191,7 @@ object StreamClient extends App {
     override def destreamer() = inb.readLine() match {
       case helloR(name) => Hello(name)(StreamOut[Start](this))
       case byeR(name)   => close(); Bye(name) // Session end: close streams
-      case e            => { close(); throw new Exception(f"Bad message: '${e}'") }
+      case e => { close(); throw new Exception(f"Bad message: '${e}'") }
     }
   }
 
@@ -229,7 +231,7 @@ object SocketClient extends App {
     override def destreamer() = inb.readLine() match {
       case helloR(name) => Hello(name)(SocketOut[Start](this))
       case byeR(name)   => close(); Bye(name) // Session end: close streams
-      case e            => { close(); throw new Exception(f"Bad message: '${e}'") }
+      case e => { close(); throw new Exception(f"Bad message: '${e}'") }
     }
   }
 
@@ -250,10 +252,11 @@ object ActorServer extends App {
   import akka.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem("GreetingServerSys",
-                                config =
-                                  Some(config.getConfig("GreetingServerSys")),
-                                defaultExecutionContext = Some(global))
+  implicit val as = ActorSystem(
+    "GreetingServerSys",
+    config = Some(config.getConfig("GreetingServerSys")),
+    defaultExecutionContext = Some(global)
+  )
 
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
@@ -278,10 +281,11 @@ object ActorClient extends App {
   import akka.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem("GreetingClientSys",
-                                config =
-                                  Some(config.getConfig("GreetingClientSys")),
-                                defaultExecutionContext = Some(global))
+  implicit val as = ActorSystem(
+    "GreetingClientSys",
+    config = Some(config.getConfig("GreetingClientSys")),
+    defaultExecutionContext = Some(global)
+  )
 
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)

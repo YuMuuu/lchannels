@@ -157,7 +157,7 @@ protected[lchannels] object Defaults {
   def getDispatcher(as: ActorSystem, name: Option[String]): ActorRef =
     dispatchers.poll match {
       case ref: ActorRef => ref // We can reuse a dispatcher
-      case null => {
+      case null          => {
         // No dispatcher is available: let's create a new one
         // TODO: allow to limit queue size and/or the number of live dispatchers
         // Note that if the dispatcher is given a name, it will NOT stay alive
@@ -192,8 +192,9 @@ protected[lchannels] object Defaults {
   }
 }
 
-/** Channels that implement message delivery by automatically spawning
-  *  Akka Typed actors. */
+/** Channels that implement message delivery by automatically spawning Akka
+  * Typed actors.
+  */
 object ActorChannel {
 
   /** Set the default execution context for actor-based channels.
@@ -202,12 +203,13 @@ object ActorChannel {
     */
   def setDefaultEC(ec: ExecutionContext) = Defaults.setExCtx(ec)
 
-  /** Set the default execution context for actor-based channels,
-    *  if it was not already set.
+  /** Set the default execution context for actor-based channels, if it was not
+    * already set.
     *
     * This default must be provided before using `ActorChannel`s over a network.
     *
-    * @return `true` if the default is updated, `false` if it was already set
+    * @return
+    *   `true` if the default is updated, `false` if it was already set
     */
   def setDefaultECIfUnset(ec: ExecutionContext): Boolean = {
     Defaults.setExCtxIfUnset(ec)
@@ -219,21 +221,22 @@ object ActorChannel {
     */
   def setDefaultAS(as: ActorSystem) = Defaults.setActorSys(as)
 
-  /** Set the default execution context for actor-based channels,
-    *  if it was not already set.
+  /** Set the default execution context for actor-based channels, if it was not
+    * already set.
     *
     * This default must be provided before using `ActorChannel`s over a network.
     *
-    * @return `true` if the default is updated, `false` if it was already set
+    * @return
+    *   `true` if the default is updated, `false` if it was already set
     */
   def setDefaultASIfUnset(as: ActorSystem): Boolean = {
     Defaults.setActorSysIfUnset(as)
   }
 
-  /** Release the resources used by actor-based channels, resetting the
-    *  default `ExecutionContext` and `ActorSystem`.
+  /** Release the resources used by actor-based channels, resetting the default
+    * `ExecutionContext` and `ActorSystem`.
     *
-    *  Invoke this method before shutting down a previously used `ActorSystem`.
+    * Invoke this method before shutting down a previously used `ActorSystem`.
     */
   def cleanup() = {
     setDefaultEC(null)
@@ -243,11 +246,15 @@ object ActorChannel {
 
   /** Create a pair of actor-based I/O channel endpoints.
     *
-    *  @param ec Execution context for internal `Promise`/`Future` handling
-    *  @param as Actor context for internal actor management
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
+    * @param as
+    *   Actor context for internal actor management
     */
-  def factory[T]()(implicit ec: ExecutionContext,
-                   as: ActorSystem): (ActorIn[T], ActorOut[T]) = {
+  def factory[T]()(implicit
+      ec: ExecutionContext,
+      as: ActorSystem
+  ): (ActorIn[T], ActorOut[T]) = {
     val dec = Defaults.getExCtx(ec)
     val das = Defaults.getActorSys(as)
     val dref = Defaults.getDispatcher(das, None)
@@ -257,19 +264,24 @@ object ActorChannel {
 
   /** Create a pair of actor-based I/O channel endpoints, with a specific name.
     *
-    *  Unlike [[factory[T]()*]], this method allows to assign a meaningful name
-    *  to the actor giving access to returned I/O channel endpoints: this is
-    *  reflected in their Actor Paths.
+    * Unlike [[factory[T]()*]], this method allows to assign a meaningful name
+    * to the actor giving access to returned I/O channel endpoints: this is
+    * reflected in their Actor Paths.
     *
-    *  @see [[ActorIn.path]] and [[ActorOut.path]]
+    * @see
+    *   [[ActorIn.path]] and [[ActorOut.path]]
     *
-    *  @param name Name of the Akka actor giving access to the returned
-    *              actor endpoints.
-    *  @param ec Execution context for internal `Promise`/`Future` handling
-    *  @param as Actor context for internal actor management
+    * @param name
+    *   Name of the Akka actor giving access to the returned actor endpoints.
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
+    * @param as
+    *   Actor context for internal actor management
     */
-  def factory[T](name: String)(implicit ec: ExecutionContext,
-                               as: ActorSystem): (ActorIn[T], ActorOut[T]) = {
+  def factory[T](name: String)(implicit
+      ec: ExecutionContext,
+      as: ActorSystem
+  ): (ActorIn[T], ActorOut[T]) = {
     assert(name != "")
     val dec = Defaults.getExCtx(ec)
     val das = Defaults.getActorSys(as)
@@ -279,37 +291,42 @@ object ActorChannel {
   }
 
   /** Spawn two functions as threads communicating via a pair of actor-based
-    *  channel endpoints.
+    * channel endpoints.
     *
-    *  This method invokes [[factory[T]()*]] to create a pair of channel endpoints
-    *  `(in,out)`, and then spawns `p1(in)` and `p2(out)`.
+    * This method invokes [[factory[T]()*]] to create a pair of channel
+    * endpoints `(in,out)`, and then spawns `p1(in)` and `p2(out)`.
     *
-    *  @return A pair of `Future`s `(f1, f2)`, completed respectively when
-    *  `p1(in)` and `p2(out)` terminate.
+    * @return
+    *   A pair of `Future`s `(f1, f2)`, completed respectively when `p1(in)` and
+    *   `p2(out)` terminate.
     *
-    *  @param p1 Function using the input channel endpoint
-    *  @param p2 Function using the output channel endpoint
-    *  @param ec Execution context where the `p1` and `p2` will run
-    *  @param as Actor context for internal actor management
+    * @param p1
+    *   Function using the input channel endpoint
+    * @param p2
+    *   Function using the output channel endpoint
+    * @param ec
+    *   Execution context where the `p1` and `p2` will run
+    * @param as
+    *   Actor context for internal actor management
     */
-  def parallel[T, R1, R2](p1: ActorIn[T] => R1, p2: ActorOut[T] => R2)(
-      implicit ec: ExecutionContext,
-      as: ActorSystem): (Future[R1], Future[R2]) = {
+  def parallel[T, R1, R2](p1: ActorIn[T] => R1, p2: ActorOut[T] => R2)(implicit
+      ec: ExecutionContext,
+      as: ActorSystem
+  ): (Future[R1], Future[R2]) = {
     val (in, out) = factory[T]()
     (Future { blocking { p1(in) } }, Future { blocking { p2(out) } })
   }
 }
 
-/** Actor-based input channel endpoint,
-  *  usually created through the [[[ActorIn$.apply* companion object]]]
-  *  or via [[ActorChannel.factory]].
+/** Actor-based input channel endpoint, usually created through the
+  * [[[ActorIn$.apply* companion object]]] or via [[ActorChannel.factory]].
   */
 // FIXME: with some fiddling, we should make ActorIn covariant on T
 @SerialVersionUID(1L)
 protected[lchannels] class ActorIn[T](dref: ActorRef)(
     @(transient @field) implicit val ec: ExecutionContext,
-    @(transient @field) implicit val as: ActorSystem)
-    extends medium.In[Actor, T]
+    @(transient @field) implicit val as: ActorSystem
+) extends medium.In[Actor, T]
     with Serializable {
   // We have to reimplement usage flags in a serializable way
   private var used = false
@@ -322,8 +339,8 @@ protected[lchannels] class ActorIn[T](dref: ActorRef)(
 
   /** Return the path of the Akka actor giving access to the channel endpoint
     *
-    *  The path allows to (remotely) proxy the channel endpoint,
-    *  via [[ActorIn	$.apply]].
+    * The path allows to (remotely) proxy the channel endpoint, via
+    * [[ActorIn $.apply]].
     */
   def path: ActorPath = dref.path
 
@@ -354,42 +371,55 @@ protected[lchannels] class ActorIn[T](dref: ActorRef)(
 
 /** Actor-based input channel endpoint. */
 object ActorIn {
-  private[lchannels] def apply[T](dref: ActorRef)(
-      implicit ec: ExecutionContext,
-      as: ActorSystem): ActorIn[T] = {
+  private[lchannels] def apply[T](
+      dref: ActorRef
+  )(implicit ec: ExecutionContext, as: ActorSystem): ActorIn[T] = {
     new ActorIn(dref)(ec, as)
   }
 
   /** Proxy an [[ActorIn]] instance reachable through the given Akka actor path
     *
-    *  @param path Actor path, matching the value of some [[ActorIn.path]]
-    *  @param ec Execution context for internal `Promise`/`Future` handling
-    *  @param as Actor system for internal actor handling
-    *  @param timeout Max wait time for path resolution
+    * @param path
+    *   Actor path, matching the value of some [[ActorIn.path]]
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
+    * @param as
+    *   Actor system for internal actor handling
+    * @param timeout
+    *   Max wait time for path resolution
     */
-  def apply[T](path: ActorPath)(implicit ec: ExecutionContext,
-                                as: ActorSystem,
-                                timeout: FiniteDuration): ActorIn[T] = {
+  def apply[T](path: ActorPath)(implicit
+      ec: ExecutionContext,
+      as: ActorSystem,
+      timeout: FiniteDuration
+  ): ActorIn[T] = {
     apply(ActorIn.resolvePath(path, timeout))
   }
 
   /** Proxy an [[ActorIn]] instance reachable through the given Akka actor path
-    *  (given as a string).
+    * (given as a string).
     *
-    *  @param path Actor path, matching the value of some [[ActorIn.path]]
-    *  @param ec Execution context for internal `Promise`/`Future` handling
-    *  @param as Actor system for internal actor handling
-    *  @param timeout Max wait time for path resolution
+    * @param path
+    *   Actor path, matching the value of some [[ActorIn.path]]
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
+    * @param as
+    *   Actor system for internal actor handling
+    * @param timeout
+    *   Max wait time for path resolution
     */
-  def apply[T](path: String)(implicit ec: ExecutionContext,
-                             as: ActorSystem,
-                             timeout: FiniteDuration): ActorIn[T] = {
+  def apply[T](path: String)(implicit
+      ec: ExecutionContext,
+      as: ActorSystem,
+      timeout: FiniteDuration
+  ): ActorIn[T] = {
     apply(akka.actor.ActorPaths.fromString(path))
   }
 
-  private[lchannels] def resolvePath(path: ActorPath, timeout: FiniteDuration)(
-      implicit ec: ExecutionContext,
-      as: ActorSystem): ActorRef = {
+  private[lchannels] def resolvePath(
+      path: ActorPath,
+      timeout: FiniteDuration
+  )(implicit ec: ExecutionContext, as: ActorSystem): ActorRef = {
     import akka.actor.{ActorIdentity, Identify}
     import akka.pattern.ask
     import scala.concurrent.Await
@@ -403,15 +433,14 @@ object ActorIn {
   }
 }
 
-/** Actor-based output channel endpoint,
-  *  usually created through the [[[ActorOut$.apply* companion object]]]
-  *  or via [[ActorChannel.factory]].
+/** Actor-based output channel endpoint, usually created through the
+  * [[[ActorOut$.apply* companion object]]] or via [[ActorChannel.factory]].
   */
 @SerialVersionUID(1L)
-protected[lchannels] class ActorOut[-T](val dref: ActorRef)(
-    implicit @(transient @field) val ec: ExecutionContext,
-    @(transient @field) val as: ActorSystem)
-    extends medium.Out[Actor, T]
+protected[lchannels] class ActorOut[-T](val dref: ActorRef)(implicit
+    @(transient @field) val ec: ExecutionContext,
+    @(transient @field) val as: ActorSystem
+) extends medium.Out[Actor, T]
     with Serializable {
   // We have to reimplement usage flags in a serializable way
   private var used = false
@@ -424,8 +453,8 @@ protected[lchannels] class ActorOut[-T](val dref: ActorRef)(
 
   /** Return the path of the Akka actor giving access to the channel endpoint
     *
-    *  The path allows to (remotely) proxy the channel endpoint,
-    *  via [[ActorOut$.apply]].
+    * The path allows to (remotely) proxy the channel endpoint, via
+    * [[ActorOut$.apply]].
     */
   def path: ActorPath = dref.path
 
@@ -445,36 +474,48 @@ protected[lchannels] class ActorOut[-T](val dref: ActorRef)(
 
 /** Actor-based output channel endpoint. */
 object ActorOut {
-  private[lchannels] def apply[T](dref: ActorRef)(
-      implicit ec: ExecutionContext,
-      as: ActorSystem): ActorOut[T] = {
+  private[lchannels] def apply[T](
+      dref: ActorRef
+  )(implicit ec: ExecutionContext, as: ActorSystem): ActorOut[T] = {
     new ActorOut(dref)(ec, as)
   }
 
   /** Proxy an [[ActorOut]] instance reachable through the given Akka actor path
     *
-    *  @param path Actor path, matching the value of some [[ActorIn.path]]
-    *  @param ec Execution context for internal `Promise`/`Future` handling
-    *  @param as Actor system for internal actor handling
-    *  @param timeout Max wait time for path resolution
+    * @param path
+    *   Actor path, matching the value of some [[ActorIn.path]]
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
+    * @param as
+    *   Actor system for internal actor handling
+    * @param timeout
+    *   Max wait time for path resolution
     */
-  def apply[T](path: ActorPath)(implicit ec: ExecutionContext,
-                                as: ActorSystem,
-                                timeout: FiniteDuration): ActorOut[T] = {
+  def apply[T](path: ActorPath)(implicit
+      ec: ExecutionContext,
+      as: ActorSystem,
+      timeout: FiniteDuration
+  ): ActorOut[T] = {
     apply(ActorIn.resolvePath(path, timeout))
   }
 
   /** Proxy an [[ActorOut]] instance reachable through the given Akka actor path
-    *  (given as a string).
+    * (given as a string).
     *
-    *  @param path Actor path, matching the value of some [[ActorIn.path]]
-    *  @param ec Execution context for internal `Promise`/`Future` handling
-    *  @param as Actor system for internal actor handling
-    *  @param timeout Max wait time for path resolution
+    * @param path
+    *   Actor path, matching the value of some [[ActorIn.path]]
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
+    * @param as
+    *   Actor system for internal actor handling
+    * @param timeout
+    *   Max wait time for path resolution
     */
-  def apply[T](path: String)(implicit ec: ExecutionContext,
-                             as: ActorSystem,
-                             timeout: FiniteDuration): ActorOut[T] = {
+  def apply[T](path: String)(implicit
+      ec: ExecutionContext,
+      as: ActorSystem,
+      timeout: FiniteDuration
+  ): ActorOut[T] = {
     apply(akka.actor.ActorPaths.fromString(path))
   }
 }

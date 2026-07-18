@@ -33,9 +33,11 @@ object Local extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
 
-  Demo.start(() => LocalChannel.factory[PlayA](),
-             () => LocalChannel.factory[PlayB](),
-             () => LocalChannel.factory[PlayC]())
+  Demo.start(
+    () => LocalChannel.factory[PlayA](),
+    () => LocalChannel.factory[PlayB](),
+    () => LocalChannel.factory[PlayC]()
+  )
 }
 
 object Queue extends App {
@@ -43,15 +45,19 @@ object Queue extends App {
   def run() = main(Array())
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  Demo.start(() => QueueChannel.factory[PlayA](),
-             () => QueueChannel.factory[PlayB](),
-             () => QueueChannel.factory[PlayC]())
+  Demo.start(
+    () => QueueChannel.factory[PlayA](),
+    () => QueueChannel.factory[PlayB](),
+    () => QueueChannel.factory[PlayC]()
+  )
 }
 
 object Demo {
-  def start(afactory: () => (In[PlayA], Out[PlayA]),
-            bfactory: () => (In[PlayB], Out[PlayB]),
-            cfactory: () => (In[PlayC], Out[PlayC])) = {
+  def start(
+      afactory: () => (In[PlayA], Out[PlayA]),
+      bfactory: () => (In[PlayB], Out[PlayB]),
+      cfactory: () => (In[PlayC], Out[PlayC])
+  ) = {
     import scala.concurrent.duration._
     implicit val timeout = 10.seconds
 

@@ -41,10 +41,11 @@ import lchannels.examples.sleepingbarber.customer.{
   Ready
 }
 
-class Shop(nSeats: Int,
-           bfactory: () => (In[Available], Out[Available]),
-           cfactory: () => (In[WaitingRoom], Out[WaitingRoom]))(
-    implicit timeout: Duration)
+class Shop(
+    nSeats: Int,
+    bfactory: () => (In[Available], Out[Available]),
+    cfactory: () => (In[WaitingRoom], Out[WaitingRoom])
+)(implicit timeout: Duration)
     extends Runnable
     with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
@@ -68,7 +69,8 @@ class Shop(nSeats: Int,
     val nPeople = peopleWaiting.getAndIncrement()
     if (nPeople >= nSeats) {
       logDebug(
-        f"waiting room is full: ${nPeople + 1} customers, ${nSeats} seats")
+        f"waiting room is full: ${nPeople + 1} customers, ${nSeats} seats"
+      )
       peopleWaiting.getAndDecrement()
       out ! Full()
     } else {

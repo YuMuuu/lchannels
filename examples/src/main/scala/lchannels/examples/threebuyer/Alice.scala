@@ -104,10 +104,11 @@ object Actor extends App {
   import binary.actor.ConnectAlice
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem("ThreeBuyerAliceSys",
-                                config =
-                                  Some(config.getConfig("ThreeBuyerAliceSys")),
-                                defaultExecutionContext = Some(global))
+  implicit val as = ActorSystem(
+    "ThreeBuyerAliceSys",
+    config = Some(config.getConfig("ThreeBuyerAliceSys")),
+    defaultExecutionContext = Some(global)
+  )
 
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)

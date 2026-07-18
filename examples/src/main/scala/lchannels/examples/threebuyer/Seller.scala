@@ -37,9 +37,9 @@ import java.time.ZonedDateTime
 
 import com.typesafe.scalalogging.StrictLogging
 
-class Seller(ca: Out[binary.PlayAlice], cb: Out[binary.PlayBob])(
-    implicit timeout: Duration)
-    extends Runnable
+class Seller(ca: Out[binary.PlayAlice], cb: Out[binary.PlayBob])(implicit
+    timeout: Duration
+) extends Runnable
     with StrictLogging {
   private def logTrace(msg: String) = logger.trace(msg)
   private def logDebug(msg: String) = logger.debug(msg)
@@ -104,7 +104,7 @@ class Seller(ca: Out[binary.PlayAlice], cb: Out[binary.PlayBob])(
     val quote = order.p match {
       case "Alice in Wonderland" => 10
       case "War and Peace"       => 100
-      case _                     => 1000 // We can find any book, but it will be expensive...
+      case _ => 1000 // We can find any book, but it will be expensive...
     }
     logInfo(f"Sending quote: ${quote} --- then waiting for answer...")
     order.cont.send(QuoteA(quote)).send(QuoteB(quote)).receive match {
@@ -134,10 +134,11 @@ object Actor extends App {
   import akka.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem("ThreeBuyerSellerSys",
-                                config =
-                                  Some(config.getConfig("ThreeBuyerSellerSys")),
-                                defaultExecutionContext = Some(global))
+  implicit val as = ActorSystem(
+    "ThreeBuyerSellerSys",
+    config = Some(config.getConfig("ThreeBuyerSellerSys")),
+    defaultExecutionContext = Some(global)
+  )
 
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
