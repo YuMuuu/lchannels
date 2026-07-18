@@ -99,7 +99,7 @@ object Actor extends App {
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import akka.actor.ActorSystem
+  import org.apache.pekko.actor.ActorSystem
 
   import binary.actor.ConnectAlice
 
@@ -115,7 +115,7 @@ object Actor extends App {
 
   implicit val timeout = 60.seconds
 
-  val sellerPath = "akka://ThreeBuyerSellerSys@127.0.0.1:31350/user/alice"
+  val sellerPath = "pekko://ThreeBuyerSellerSys@127.0.0.1:31350/user/alice"
   println(f"[*] Connecting to ${sellerPath}...")
   val c: Out[ConnectAlice] = ActorOut[ConnectAlice](sellerPath)
   val c2 = c !! ConnectAlice() _

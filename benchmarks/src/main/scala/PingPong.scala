@@ -189,11 +189,11 @@ object JavaBlockingQueuesImpl {
   }
 }
 
-/** Akka Typed implementation, optimized with actor reusage. */
-object AkkaTypedImpl {
-  import akka.actor.typed.{ActorRef, Behavior}
-  import akka.actor.typed.scaladsl.Behaviors
-  import akka.actor.typed.scaladsl.adapter._
+/** Pekko Typed implementation, optimized with actor reusage. */
+object PekkoTypedImpl {
+  import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+  import org.apache.pekko.actor.typed.scaladsl.Behaviors
+  import org.apache.pekko.actor.typed.scaladsl.adapter._
 
   sealed abstract class Request
   case class Ping(msg: String, replyTo: ActorRef[Pong]) extends Request
@@ -262,13 +262,13 @@ object AkkaTypedImpl {
     }
 
   def benchmark(msg: String, exchanges: Int, maxDuration: Duration)(implicit
-      as: akka.actor.ActorSystem
+      as: org.apache.pekko.actor.ActorSystem
   ): Long = {
     benchmarkImpl(msg, exchanges, maxDuration, pingerBeh, pongerBeh)
   }
 
   def benchmarkOpt(msg: String, exchanges: Int, maxDuration: Duration)(implicit
-      as: akka.actor.ActorSystem
+      as: org.apache.pekko.actor.ActorSystem
   ): Long = {
     benchmarkImpl(msg, exchanges, maxDuration, pingerBehOpt, pongerBehOpt)
   }
@@ -279,7 +279,7 @@ object AkkaTypedImpl {
       maxDuration: Duration,
       pingerB: (String, Int) => Behavior[Pong],
       pongerB: Promise[Long] => Behavior[Request]
-  )(implicit as: akka.actor.ActorSystem): Long = {
+  )(implicit as: org.apache.pekko.actor.ActorSystem): Long = {
     val endTS = Promise[Long]
 
     // We will send the first Ping
@@ -309,7 +309,7 @@ object Benchmark {
 
     case class Bench(title: String, f: () => Long, results: MBuffer[Long])
 
-    implicit val as = akka.actor
+    implicit val as = org.apache.pekko.actor
       .ActorSystem("PingPongBenchmark", defaultExecutionContext = Some(global))
 
     // implicit val timeout = 5.seconds
@@ -384,11 +384,11 @@ object Benchmark {
         () => lBench(ActorChannel.parallel, msg, exchanges, maxWait),
         MBuffer()
       )
-      // Bench("Akka Typed",
-      //       () => AkkaTypedImpl.benchmark(msg, exchanges, maxWait),
+      // Bench("Pekko Typed",
+      //       () => PekkoTypedImpl.benchmark(msg, exchanges, maxWait),
       //       MBuffer()),
-      // Bench("Akka Typed (optim)",
-      //       () => AkkaTypedImpl.benchmarkOpt(msg, exchanges, maxWait),
+      // Bench("Pekko Typed (optim)",
+      //       () => PekkoTypedImpl.benchmarkOpt(msg, exchanges, maxWait),
       //       MBuffer())
     )
 

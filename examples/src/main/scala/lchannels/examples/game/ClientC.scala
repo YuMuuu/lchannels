@@ -87,7 +87,7 @@ object Actor extends App {
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import akka.actor.ActorSystem
+  import org.apache.pekko.actor.ActorSystem
 
   import binary.actor.{ConnectC => Connect}
 
@@ -103,7 +103,7 @@ object Actor extends App {
 
   implicit val timeout = 60.seconds
 
-  val serverPath = "akka://GameServerSys@127.0.0.1:31340/user/c"
+  val serverPath = "pekko://GameServerSys@127.0.0.1:31340/user/c"
   println(f"[*] Connecting to ${serverPath}...")
   val c: Out[Connect] = ActorOut[Connect](serverPath)
   val c2 = c !! Connect() _

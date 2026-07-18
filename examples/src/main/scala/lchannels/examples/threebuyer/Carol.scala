@@ -97,7 +97,7 @@ object Actor extends App {
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import akka.actor.ActorSystem
+  import org.apache.pekko.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
   implicit val as = ActorSystem(

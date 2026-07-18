@@ -459,7 +459,7 @@ object Benchmark {
     import scala.collection.mutable.{Buffer => MBuffer}
     case class Bench(title: String, f: () => Long, results: MBuffer[Long])
 
-    implicit val as = akka.actor
+    implicit val as = org.apache.pekko.actor
       .ActorSystem("RingBenchmark", defaultExecutionContext = Some(global))
 
     implicit val timeout = 3600.seconds

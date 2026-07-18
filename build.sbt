@@ -28,9 +28,9 @@ lazy val lchannels = (project in file("lchannels"))
   .settings(
     name := "lchannels",
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-actor" % "2.8.8",
-      "com.typesafe.akka" %% "akka-actor-typed" % "2.8.8",
-      "com.typesafe.akka" %% "akka-remote" % "2.8.8"
+      "org.apache.pekko" %% "pekko-actor" % "1.6.0",
+      "org.apache.pekko" %% "pekko-actor-typed" % "1.6.0",
+      "org.apache.pekko" %% "pekko-remote" % "1.6.0"
     )
   )
 
@@ -40,7 +40,7 @@ lazy val examples = (project in file("examples"))
   .settings(
     name := "lchannels-examples",
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-simple" % "1.7.36",
+      "org.slf4j" % "slf4j-simple" % "2.0.18",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6"
     )
   )
