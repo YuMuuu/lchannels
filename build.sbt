@@ -28,9 +28,9 @@ lazy val lchannels = (project in file("lchannels"))
   .settings(
     name := "lchannels",
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-actor" % "2.6.21",
-      "com.typesafe.akka" %% "akka-actor-typed" % "2.6.21",
-      "com.typesafe.akka" %% "akka-remote" % "2.6.21"
+      "com.typesafe.akka" %% "akka-actor" % "2.8.8",
+      "com.typesafe.akka" %% "akka-actor-typed" % "2.8.8",
+      "com.typesafe.akka" %% "akka-remote" % "2.8.8"
     )
   )
 

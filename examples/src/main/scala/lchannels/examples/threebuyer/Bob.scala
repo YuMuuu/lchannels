@@ -124,14 +124,14 @@ object Actor extends App {
 
   implicit val timeout = 60.seconds
 
-  val sellerPath = "akka.tcp://ThreeBuyerSellerSys@127.0.0.1:31350/user/bob"
+  val sellerPath = "akka://ThreeBuyerSellerSys@127.0.0.1:31350/user/bob"
   println(f"[*] Connecting to ${sellerPath}...")
   val c: Out[ConnectBob] = ActorOut[ConnectBob](sellerPath)
   val c2 = c !! ConnectBob() _
 
   def connector(logger: String => Unit) = {
     // Path where Carol is waiting for Bob's connection
-    val carolPath = "akka.tcp://ThreeBuyerCarolSys@127.0.0.1:31353/user/bob"
+    val carolPath = "akka://ThreeBuyerCarolSys@127.0.0.1:31353/user/bob"
     logger(f"Connecting to ${carolPath}...")
     val c: Out[ConnectCarol] = ActorOut[ConnectCarol](carolPath)
     c !! ConnectCarol() _

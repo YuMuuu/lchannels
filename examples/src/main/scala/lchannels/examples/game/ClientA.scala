@@ -122,7 +122,7 @@ object Actor extends App {
 
   implicit val timeout = 60.seconds
 
-  val serverPath = "akka.tcp://GameServerSys@127.0.0.1:31340/user/a"
+  val serverPath = "akka://GameServerSys@127.0.0.1:31340/user/a"
   println(f"[*] Connecting to ${serverPath}...")
   val c: Out[Connect] = ActorOut[Connect](serverPath)
   val c2 = c !! Connect() _

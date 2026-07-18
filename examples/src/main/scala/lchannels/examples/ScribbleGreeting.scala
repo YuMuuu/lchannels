@@ -327,7 +327,7 @@ object ActorClient extends App {
 
   implicit val timeout = 10.seconds
 
-  val serverPath = "akka.tcp://GreetingServerSys@127.0.0.1:31337/user/start"
+  val serverPath = "akka://GreetingServerSys@127.0.0.1:31337/user/start"
   println(f"[*] Connecting to ${serverPath}...")
   val c = ActorOut[binary.GreetOrQuit](serverPath)
   Client1(C.MPGreetOrQuit(c))
