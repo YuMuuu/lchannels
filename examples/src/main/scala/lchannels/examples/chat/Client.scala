@@ -39,11 +39,16 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(implicit
     with StrictLogging {
   import scala.concurrent.duration._
 
-  private def logTrace(msg: String) = logger.trace(f"${spec.username}: ${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${spec.username}: ${msg}")
-  private def logInfo(msg: String) = logger.info(f"${spec.username}: ${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${spec.username}: ${msg}")
-  private def logError(msg: String) = logger.error(f"${spec.username}: ${msg}")
+  private def logTrace(msg: String) =
+    logger.trace(s"${spec.username.toString}: ${msg.toString}")
+  private def logDebug(msg: String) =
+    logger.debug(s"${spec.username.toString}: ${msg.toString}")
+  private def logInfo(msg: String) =
+    logger.info(s"${spec.username.toString}: ${msg.toString}")
+  private def logWarn(msg: String) =
+    logger.warn(s"${spec.username.toString}: ${msg.toString}")
+  private def logError(msg: String) =
+    logger.error(s"${spec.username.toString}: ${msg.toString}")
 
   private val roomName = "TestRoom"
 
@@ -51,7 +56,7 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(implicit
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
 
-  override def run() = {
+  override def run(): Unit = {
     logInfo("started, getting session")
     (frontend !! GetSession(0) _) ? { // Session 0 should not exist
       case Active(srv)  => loggedIn(srv)
@@ -62,7 +67,7 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(implicit
 
   private def loggedIn(srv: Out[session.Command]): Unit = {
     (srv !! session.Join(roomName) _) ? { case session.ChatRoom(msgc, ctl) =>
-      logInfo(f"joined chatroom ${roomName}")
+      logInfo(s"joined chatroom ${roomName.toString}")
       chat(msgc, ctl, spec.msgCount)
     }
   }
@@ -73,17 +78,18 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(implicit
       msgCount: Int
   ): Unit = {
     if (msgCount <= 0) {
-      logInfo(f"leaving chatroom ${roomName}")
+      logInfo(s"leaving chatroom ${roomName.toString}")
       ctlc ! roomctl.Quit()
       receiveMessages(msgc, Duration.Inf) // Receive until Quit()
     } else {
-      val text = f"This is message no. ${(spec.msgCount - msgCount) + 1}"
-      logInfo(f"sending message: '${text}'")
+      val text =
+        s"This is message no. ${((spec.msgCount - msgCount) + 1).toString}"
+      logInfo(s"sending message: '${text.toString}'")
       val ctlc2 = ctlc !! roomctl.SendMessage(text) _
       receiveMessages(msgc, spec.msgDelay) match {
         case Some(msgc2) => chat(msgc2, ctlc2, msgCount - 1)
         case None        => {
-          logInfo(f"leaving chatroom ${roomName}")
+          logInfo(s"leaving chatroom ${roomName.toString}")
           ctlc2 ! roomctl.Quit()
         }
       }
@@ -96,8 +102,8 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(implicit
   ): Option[In[room.Messages]] = {
     logDebug({
       val wait =
-        if (maxWait.isFinite) f"${maxWait.toMillis / 1000.0}" else "Inf"
-      f"waiting for messages (maxWait: ${wait} secs)"
+        if (maxWait.isFinite) (maxWait.toMillis / 1000.0).toString else "Inf"
+      s"waiting for messages (maxWait: ${wait.toString} secs)"
     })
     val tStart = System.nanoTime()
     try {
@@ -107,13 +113,15 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(implicit
           None
         }
         case m @ room.Ping(msg) => {
-          logInfo(f"received Ping(${msg})")
+          logInfo(s"received Ping(${msg.toString})")
           val msgc2 = m.cont !! room.Pong(msg) _
           val elapsed = System.nanoTime - tStart
           receiveMessages(msgc2, maxWait - Duration.fromNanos(elapsed))
         }
         case m @ room.NewMessage(username, text) => {
-          logInfo(f"received message: ${username} says '${text}'")
+          logInfo(
+            s"received message: ${username.toString} says '${text.toString}'"
+          )
           val elapsed = System.nanoTime - tStart
           receiveMessages(m.cont, maxWait - Duration.fromNanos(elapsed))
         }

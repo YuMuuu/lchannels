@@ -51,11 +51,11 @@ protected[barbershop] case class Serve(chan: In[CustDescription])(
 class Barber(shop: Out[Available])(implicit d: Duration)
     extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${msg}")
-  private def logInfo(msg: String) = logger.info(f"${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${msg}")
-  private def logError(msg: String) = logger.error(f"${msg}")
+  private def logTrace(msg: String) = logger.trace(s"${msg.toString}")
+  private def logDebug(msg: String) = logger.debug(s"${msg.toString}")
+  private def logInfo(msg: String) = logger.info(s"${msg.toString}")
+  private def logWarn(msg: String) = logger.warn(s"${msg.toString}")
+  private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }

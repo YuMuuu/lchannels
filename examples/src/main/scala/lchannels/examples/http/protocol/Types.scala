@@ -41,7 +41,8 @@ object Version {
   /** Construct Version object from a string, as found in an HTTP request. */
   def apply(v: String) = v match {
     case "HTTP/1.1" => Http11
-    case _ => throw new RuntimeException(f"Unsupported HTTP version: ${v}")
+    case _          =>
+      throw new RuntimeException(s"Unsupported HTTP version: ${v.toString}")
   }
 }
 
@@ -55,7 +56,7 @@ object Method {
   /** Construct method object from a string, as found in an HTTP request. */
   def apply(v: String) = v match {
     case "GET" => GET
-    case _     => throw new RuntimeException(f"Unsupported method: ${v}")
+    case _ => throw new RuntimeException(s"Unsupported method: ${v.toString}")
   }
 }
 

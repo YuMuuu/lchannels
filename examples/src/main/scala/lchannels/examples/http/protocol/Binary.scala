@@ -119,23 +119,31 @@ class HttpServerSocketManager(
   private val crlf = "\r\n"
 
   override def streamer(x: Any) = x match {
-    case HttpVersion(v) => outb.write(f"${v} ")
-    case Code200(msg)   => outb.write(f"200 ${msg}${crlf}"); outb.flush()
-    case Code404(msg)   => outb.write(f"404 ${msg}${crlf}"); outb.flush()
+    case HttpVersion(v) => outb.write(s"${v.toString} ")
+    case Code200(msg)   =>
+      outb.write(s"200 ${msg.toString}${crlf.toString}"); outb.flush()
+    case Code404(msg) =>
+      outb.write(s"404 ${msg.toString}${crlf.toString}"); outb.flush()
 
     case Date(date) =>
-      outb.write(f"Date: ${date.format(RFCDate)}${crlf}"); outb.flush()
-    case Server(server) => outb.write(f"Server: ${server}${crlf}"); outb.flush()
+      outb.write(s"Date: ${date.format(RFCDate).toString}${crlf.toString}");
+      outb.flush()
+    case Server(server) =>
+      outb.write(s"Server: ${server.toString}${crlf.toString}"); outb.flush()
     case ResponseBody(body) => {
-      outb.write(f"Content-Type: ${body.contentType}${crlf}"); outb.flush()
-      outb.write(f"Content-Length: ${body.contents.size}${crlf}${crlf}");
+      outb.write(s"Content-Type: ${body.contentType.toString}${crlf.toString}");
+      outb.flush()
+      outb.write(
+        s"Content-Length: ${body.contents.size.toString}${crlf.toString}${crlf.toString}"
+      );
       outb.flush()
       out.write(body.contents) // NOTE: bypass outb, to preserve encoding
       outb.close()
     }
 
     case e => {
-      close(); throw new RuntimeException(f"BUG: unsupported message: '${e}'")
+      close();
+      throw new RuntimeException(s"BUG: unsupported message: '${e.toString}'")
     }
   }
 
@@ -170,7 +178,7 @@ class HttpServerSocketManager(
           val m = Method(method)
           val path = new URI(uri).getPath
           val v = Version(version)
-          return Request(RequestLine(m, path, v))(SocketIn[RequestChoice](this))
+          Request(RequestLine(m, path, v))(SocketIn[RequestChoice](this))
         }
 
         case null => {
@@ -179,40 +187,44 @@ class HttpServerSocketManager(
         }
         case e => {
           close()
-          throw new ProtocolError(f"Unexpected initial message: '${e}'")
+          throw new ProtocolError(
+            s"Unexpected initial message: '${e.toString}'"
+          )
         }
       }
-    }
+    } else {
+      line match {
+        case acceptR(fmts)    => Accept(fmts)(SocketIn[RequestChoice](this))
+        case acceptEncR(encs) =>
+          AcceptEncodings(encs)(SocketIn[RequestChoice](this))
+        case acceptLangR(langs) =>
+          AcceptLanguage(langs)(SocketIn[RequestChoice](this))
+        case connectionR(conn) =>
+          Connection(conn)(SocketIn[RequestChoice](this))
+        case dntR(dnt) => DoNotTrack(dnt == "1")(SocketIn[RequestChoice](this))
+        case hostR(host)    => Host(host)(SocketIn[RequestChoice](this))
+        case upgradeirR(up) =>
+          UpgradeIR(up == "1")(SocketIn[RequestChoice](this))
+        case useragentR(ua) => UserAgent(ua)(SocketIn[RequestChoice](this))
 
-    // If we are here, then requestStarted was false
-    line match {
-      case acceptR(fmts)    => Accept(fmts)(SocketIn[RequestChoice](this))
-      case acceptEncR(encs) =>
-        AcceptEncodings(encs)(SocketIn[RequestChoice](this))
-      case acceptLangR(langs) =>
-        AcceptLanguage(langs)(SocketIn[RequestChoice](this))
-      case connectionR(conn) => Connection(conn)(SocketIn[RequestChoice](this))
-      case dntR(dnt)      => DoNotTrack(dnt == 1)(SocketIn[RequestChoice](this))
-      case hostR(host)    => Host(host)(SocketIn[RequestChoice](this))
-      case upgradeirR(up) => UpgradeIR(up == 1)(SocketIn[RequestChoice](this))
-      case useragentR(ua) => UserAgent(ua)(SocketIn[RequestChoice](this))
+        case genericHeaderR(h, _) if relaxHeaders => {
+          // Ignore this header, and keep looking for something supported
+          logger(s"Skipping unsupported HTTP header '${h.toString}'")
+          destreamer()
+        }
 
-      case genericHeaderR(h, _) if relaxHeaders => {
-        // Ignore this header, and keep looking for something supported
-        logger(f"Skipping unsupported HTTP header '${h}'")
-        destreamer()
-      }
+        case "" => {
+          // The request body should now follow.
+          // TODO: in this HTTP fragment, we assume GET with Content-Length=0
+          RequestBody(Body("text/html", Array[Byte]()))(
+            SocketOut[HttpVersion](this)
+          )
+        }
 
-      case "" => {
-        // The request body should now follow.
-        // TODO: in this HTTP fragment, we assume GET with Content-Length=0
-        RequestBody(Body("text/html", Array[Byte]()))(
-          SocketOut[HttpVersion](this)
-        )
-      }
-
-      case e => {
-        close(); throw new ProtocolError(f"Unexpected message: '${e}'")
+        case e => {
+          close();
+          throw new ProtocolError(s"Unexpected message: '${e.toString}'")
+        }
       }
     }
   }

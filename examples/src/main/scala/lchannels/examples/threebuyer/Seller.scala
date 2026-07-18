@@ -100,21 +100,23 @@ class Seller(ca: Out[binary.PlayAlice], cb: Out[binary.PlayBob])(implicit
   private def sell(s: MPTitle) = {
     logInfo("Waiting for order...")
     val order = s.receive
-    logInfo(f"Received order: '${order.p}'")
+    logInfo(s"Received order: '${order.p.toString}'")
     val quote = order.p match {
       case "Alice in Wonderland" => 10
       case "War and Peace"       => 100
       case _ => 1000 // We can find any book, but it will be expensive...
     }
-    logInfo(f"Sending quote: ${quote} --- then waiting for answer...")
+    logInfo(s"Sending quote: ${quote.toString} --- then waiting for answer...")
     order.cont.send(QuoteA(quote)).send(QuoteB(quote)).receive match {
       case OkS((), cont) => {
         logInfo("Quote accepted, waiting for address")
         val address = cont.receive
-        logInfo(f"Got delivery address: '${address.p}'")
+        logInfo(s"Got delivery address: '${address.p.toString}'")
 
         val deliveryDate = ZonedDateTime.now().plusDays(7)
-        logInfo(f"Sending delivery date (7 days from now): ${deliveryDate}")
+        logInfo(
+          s"Sending delivery date (7 days from now): ${deliveryDate.toString}"
+        )
         address.cont.send(Deliver(deliveryDate))
       }
       case QuitS(()) => {
@@ -134,7 +136,7 @@ object Actor extends App {
   import org.apache.pekko.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem(
+  implicit val as: ActorSystem = ActorSystem(
     "ThreeBuyerSellerSys",
     config = Some(config.getConfig("ThreeBuyerSellerSys")),
     defaultExecutionContext = Some(global)
@@ -143,22 +145,24 @@ object Actor extends App {
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
 
-  implicit val timeout = 120.seconds
+  implicit val timeout: FiniteDuration = 120.seconds
 
   // We give a human-readable name to the connection endpoints
   val (ai, ao) = ActorChannel.factory[binary.actor.ConnectAlice]("alice");
   val (bi, bo) = ActorChannel.factory[binary.actor.ConnectBob]("bob");
-  println(f"[*] Waiting connections on: ${ao.path}, ${bo.path}")
+  println(
+    s"[*] Waiting connections on: ${ao.path.toString}, ${bo.path.toString}"
+  )
 
   val ac = ai.receive
-  println(f"[*] Alice connected")
+  println(s"[*] Alice connected")
   val bc = bi.receive
-  println(f"[*] Bob connected")
+  println(s"[*] Bob connected")
 
   val seller = new Seller(ac.cont, bc.cont)(30.seconds)
 
   seller.join()
   Thread.sleep(2000) // Just to deliver pending actor messages
-  println(f"[*] Quitting")
+  println(s"[*] Quitting")
   as.terminate()
 }

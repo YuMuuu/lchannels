@@ -71,16 +71,18 @@ class CalcStreamManager(in: InputStream, out: OutputStream)(implicit
     case answerR(n)    => Answer(n.toInt)(StreamOut[Choice](this))
     case unknown       => {
       close()
-      throw new java.net.ProtocolException(f"Unknown message: '${unknown}'")
+      throw new java.net.ProtocolException(
+        s"Unknown message: '${unknown.toString}'"
+      )
     }
   }
 
   private val outb = new BufferedWriter(new OutputStreamWriter(out))
 
   override def streamer(x: Any) = x match {
-    case Negate(n) => outb.write(f"NEGATE ${n}\n"); outb.flush()
-    case Add(n)    => outb.write(f"ADD ${n}\n"); outb.flush()
-    case Add2(n)   => outb.write(f"ADD2 ${n}\n"); outb.flush()
+    case Negate(n) => outb.write(s"NEGATE ${n.toString}\n"); outb.flush()
+    case Add(n)    => outb.write(s"ADD ${n.toString}\n"); outb.flush()
+    case Add2(n)   => outb.write(s"ADD2 ${n.toString}\n"); outb.flush()
     case Quit()    => outb.write("QUIT\n"); outb.flush(); close()
   }
 }
@@ -95,23 +97,25 @@ class CalcSocketManager(socket: java.net.Socket) extends SocketManager(socket) {
     case answerR(n)    => Answer(n.toInt)(SocketOut[Choice](this))
     case unknown       => {
       close()
-      throw new java.net.ProtocolException(f"Unknown message: '${unknown}'")
+      throw new java.net.ProtocolException(
+        s"Unknown message: '${unknown.toString}'"
+      )
     }
   }
 
   private val outb = new BufferedWriter(new OutputStreamWriter(out))
 
   override def streamer(x: Any) = x match {
-    case Negate(n) => outb.write(f"NEGATE ${n}\n"); outb.flush()
-    case Add(n)    => outb.write(f"ADD ${n}\n"); outb.flush()
-    case Add2(n)   => outb.write(f"ADD2 ${n}\n"); outb.flush()
+    case Negate(n) => outb.write(s"NEGATE ${n.toString}\n"); outb.flush()
+    case Add(n)    => outb.write(s"ADD ${n.toString}\n"); outb.flush()
+    case Add2(n)   => outb.write(s"ADD2 ${n.toString}\n"); outb.flush()
     case Quit()    => outb.write("QUIT\n"); outb.flush(); close()
   }
 }
 
 object Server {
   def apply(c: Out[Welcome])(implicit timeout: Duration): Unit = {
-    println(f"[S] Sending welcome to ${c}...")
+    println(s"[S] Sending welcome to ${c.toString}...")
     val c2 = c !! Welcome("Welcome to SessionCalc 0.1") _
     subHandler(c2)
 
@@ -119,19 +123,23 @@ object Server {
       println("[S] Now waiting for a choice... ")
       c ? {
         case Quit() => {
-          println(f"[S] Got Quit(), finishing")
+          println(s"[S] Got Quit(), finishing")
         }
         case m @ Negate(value) => {
-          println(f"[S] Got 'Negate(${value})', answering ${-value}")
+          println(
+            s"[S] Got 'Negate(${value.toString})', answering ${(-value).toString}"
+          )
           val c2 = m.cont !! Answer(-value) _
           println("[S] Performing recursive call...")
           subHandler(c2)
         }
         case m @ Add(val1) => {
-          println(f"[S] Got Add(${val1}), waiting for 2nd value...")
+          println(s"[S] Got Add(${val1.toString}), waiting for 2nd value...")
           m.cont.receive match {
             case m @ Add2(val2) => {
-              println(f"[S] Got Add2(${val2}), answering ${val1 + val2}...")
+              println(
+                s"[S] Got Add2(${val2.toString}), answering ${(val1 + val2).toString}..."
+              )
               val c3 = m.cont !! Answer(val1 + val2) _
               println("[S] Performing recursive call...")
               subHandler(c3)
@@ -146,20 +154,20 @@ object Server {
 object Client {
   def apply(c: In[Welcome])(implicit timeout: Duration): Unit = {
     val welcome = c.receive
-    println(f"[C] Got '${welcome.message}'")
+    println(s"[C] Got '${welcome.message.toString}'")
 
-    println(f"[C] Sending Negate(42)...")
+    println(s"[C] Sending Negate(42)...")
     val ans = welcome.cont !! Negate(42) _
     println("[C] ...done.  Now waiting for answer...")
     val neg = ans.receive
-    println(f"[C] ...done: got ${neg.value}")
+    println(s"[C] ...done: got ${neg.value.toString}")
 
     println("[C] Now trying to add 7 and 5...")
 
     val ans2 = neg.cont !! Add(7) _ !! Add2(5) _
     println("[C] ...done.  Now waiting for answer...")
     val sum = ans2.receive
-    println(f"[C] ...done: got ${sum.value}")
+    println(s"[C] ...done: got ${sum.value.toString}")
 
     println("[C] Now quitting")
     sum.cont ! Quit()
@@ -175,7 +183,7 @@ object Local extends App {
   import scala.concurrent.ExecutionContext.Implicits.global
   import scala.concurrent.duration._
 
-  implicit val timeout = 5.seconds
+  implicit val timeout: FiniteDuration = 5.seconds
 
   println("[*] Spawning local server and client...")
   val (s, c) = parallel[Welcome, Unit, Unit](
@@ -195,7 +203,7 @@ object Queue extends App {
   import scala.concurrent.ExecutionContext.Implicits.global
   import scala.concurrent.duration._
 
-  implicit val timeout = 5.seconds
+  implicit val timeout: FiniteDuration = 5.seconds
 
   println(
     "[*] Spawning local server and client (using queue-based channels)..."

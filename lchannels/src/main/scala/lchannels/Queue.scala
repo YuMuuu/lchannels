@@ -98,7 +98,7 @@ class QueueIn[+T](fifo: Fifo[Any])(implicit ec: ExecutionContext)
       if (v == null) {
         // NOTE: if a null value is received, we treat it as a timeout
         throw new java.util.concurrent.TimeoutException(
-          f"Input timed out after ${atMost}"
+          s"Input timed out after ${atMost.toString}"
         )
       }
       v.asInstanceOf[T]

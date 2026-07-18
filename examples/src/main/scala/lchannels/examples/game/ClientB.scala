@@ -38,11 +38,16 @@ class Client(name: String, s: In[binary.PlayB], wait: Duration)(implicit
     timeout: Duration
 ) extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${name}: ${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${name}: ${msg}")
-  private def logInfo(msg: String) = logger.info(f"${name}: ${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${name}: ${msg}")
-  private def logError(msg: String) = logger.error(f"${name}: ${msg}")
+  private def logTrace(msg: String) =
+    logger.trace(s"${name.toString}: ${msg.toString}")
+  private def logDebug(msg: String) =
+    logger.debug(s"${name.toString}: ${msg.toString}")
+  private def logInfo(msg: String) =
+    logger.info(s"${name.toString}: ${msg.toString}")
+  private def logWarn(msg: String) =
+    logger.warn(s"${name.toString}: ${msg.toString}")
+  private def logError(msg: String) =
+    logger.error(s"${name.toString}: ${msg.toString}")
 
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
@@ -55,23 +60,27 @@ class Client(name: String, s: In[binary.PlayB], wait: Duration)(implicit
     val game = c.receive.p
     logInfo("...done.  Sending name to C, and waiting for A's info...")
     val info = game.send(InfoBC(name)).receive
-    logInfo(f"...got InfoCA(${info.p}).  Starting game loop.")
+    logInfo(s"...got InfoCA(${info.p.toString}).  Starting game loop.")
     loop(info.cont)
   }
 
   @scala.annotation.tailrec
   private def loop(g: MPMov1ABOrMov2AB): Unit = {
-    logInfo(f"Delay: ${wait}")
+    logInfo(s"Delay: ${wait.toString}")
     Thread.sleep(wait.toMillis)
     logInfo("Waiting for A's move...")
     g.receive match {
       case Mov1AB(p, cont) => {
-        logInfo(f"Got Mov1AB(${p}), sending Mov1BC(${p}) and looping")
+        logInfo(
+          s"Got Mov1AB(${p.toString}), sending Mov1BC(${p.toString}) and looping"
+        )
         val g2 = cont.send(Mov1BC(p))
         loop(g2)
       }
       case Mov2AB(p, cont) => {
-        logInfo(f"Got Mov2AB(${p}), sending Mov2BC(${p}) and looping")
+        logInfo(
+          s"Got Mov2AB(${p.toString}), sending Mov2BC(${p.toString}) and looping"
+        )
         val g2 = cont.send(Mov2BC(p))
         loop(g2)
       }
@@ -91,7 +100,7 @@ object Actor extends App {
   import binary.actor.{ConnectB => Connect}
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem(
+  implicit val as: ActorSystem = ActorSystem(
     "GameClientBSys",
     config = Some(config.getConfig("GameClientBSys")),
     defaultExecutionContext = Some(global)
@@ -100,10 +109,10 @@ object Actor extends App {
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
 
-  implicit val timeout = 60.seconds
+  implicit val timeout: FiniteDuration = 60.seconds
 
   val serverPath = "pekko://GameServerSys@127.0.0.1:31340/user/b"
-  println(f"[*] Connecting to ${serverPath}...")
+  println(s"[*] Connecting to ${serverPath.toString}...")
   val c: Out[Connect] = ActorOut[Connect](serverPath)
   val c2 = c !! Connect() _
 

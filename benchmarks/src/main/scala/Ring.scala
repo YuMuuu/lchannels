@@ -381,7 +381,7 @@ object PekkoTypedImpl {
         }
       }
       case Stop() => {
-        endTS success System.nanoTime()
+        endTS.success(System.nanoTime())
         Behaviors.stopped
       }
     }
@@ -393,7 +393,7 @@ object PekkoTypedImpl {
       maxDuration: Duration
   )(implicit as: org.apache.pekko.actor.ActorSystem): Long = {
 
-    implicit val timeout = Duration.Inf
+    implicit val timeout: Duration = Duration.Inf
 
     val endTS = Promise[Long]
     val fwdToP = Promise[ActorRef[Command]]
@@ -408,7 +408,7 @@ object PekkoTypedImpl {
       forwarderRefs += r
     }
 
-    fwdToP success forwarderRefs(ringSize - 1)
+    fwdToP.success(forwarderRefs(ringSize - 1))
 
     val startTS = System.nanoTime()
     masterRef ! Fwd(msg)
@@ -453,12 +453,12 @@ object Benchmark {
     implicit val as = org.apache.pekko.actor
       .ActorSystem("RingBenchmark", defaultExecutionContext = Some(global))
 
-    implicit val timeout = 3600.seconds
+    implicit val timeout: FiniteDuration = 3600.seconds
     val maxWait = 3600.seconds
     val loops = msgCount / ringSize
 
     println(
-      f"*** Ring benchmark (${which}, ${ringSize} processes, ${loops} message loops)"
+      s"*** Ring benchmark (${which.toString}, ${ringSize.toString} processes, ${loops.toString} message loops)"
     )
 
     val benchmarks = List(
@@ -551,7 +551,7 @@ object Benchmark {
     val rnd = new scala.util.Random()
 
     val pfRes = for (i <- 0 until repetitions) {
-      print(f"\r    Repetition: ${i + 1}/${repetitions}")
+      print(s"\r    Repetition: ${(i + 1).toString}/${repetitions.toString}")
       // Execute benchmarks in random order at each iteration, for fairness
       for (b <- rnd.shuffle(benchmarks)) {
         System.gc(); System.runFinalization() // Best time to garbage collect
@@ -582,7 +582,7 @@ object Benchmark {
           def run() =
             LChannelsImpl.forwarder(channels(j)._1, channels(j + 1)._2)
         },
-        f"Forwarder ${j + 1}"
+        s"Forwarder ${(j + 1).toString}"
       ).start()
     }
     val res = Future {
@@ -629,7 +629,7 @@ object Benchmark {
           def run() =
             PromiseFutureImpl.forwarder(channels(j)._1, channels(j + 1)._2)
         },
-        f"Forwarder ${j + 1}"
+        s"Forwarder ${(j + 1).toString}"
       ).start()
     }
     val res = Future {
@@ -676,7 +676,7 @@ object Benchmark {
         new Runnable {
           def run() = ScalaChannelsImpl.forwarder(channels(j), channels(j + 1))
         },
-        f"Forwarder ${j + 1}"
+        s"Forwarder ${(j + 1).toString}"
       ).start()
     }
     val res = Future {
@@ -724,7 +724,7 @@ object Benchmark {
           def run() =
             JavaBlockingQueuesImpl.forwarder(channels(j), channels(j + 1))
         },
-        f"Forwarder ${j + 1}"
+        s"Forwarder ${(j + 1).toString}"
       ).start()
     }
     val res = Future {

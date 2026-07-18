@@ -38,11 +38,16 @@ class Client(name: String, s: In[binary.PlayA], wait: Duration)(implicit
     timeout: Duration
 ) extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${name}: ${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${name}: ${msg}")
-  private def logInfo(msg: String) = logger.info(f"${name}: ${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${name}: ${msg}")
-  private def logError(msg: String) = logger.error(f"${name}: ${msg}")
+  private def logTrace(msg: String) =
+    logger.trace(s"${name.toString}: ${msg.toString}")
+  private def logDebug(msg: String) =
+    logger.debug(s"${name.toString}: ${msg.toString}")
+  private def logInfo(msg: String) =
+    logger.info(s"${name.toString}: ${msg.toString}")
+  private def logWarn(msg: String) =
+    logger.warn(s"${name.toString}: ${msg.toString}")
+  private def logError(msg: String) =
+    logger.error(s"${name.toString}: ${msg.toString}")
 
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
@@ -55,42 +60,44 @@ class Client(name: String, s: In[binary.PlayA], wait: Duration)(implicit
     val game = c.receive.p
     logInfo("...done.  Waiting for info...")
     val info = game.receive
-    logInfo(f"...got '${info.p}'.  Sending info to B...")
-    val gloop = info.cont.send(InfoAB(info.p + f", ${name}"))
+    logInfo(s"...got '${info.p.toString}'.  Sending info to B...")
+    val gloop = info.cont.send(InfoAB(info.p + s", ${name.toString}"))
     logInfo("...done.  Starting game loop.")
     loop(gloop, 1)
   }
 
   @scala.annotation.tailrec
   private def loop(g: MPMov1ABOrMov2AB, loopn: Int): Unit = {
-    logInfo(f"Delay: ${wait}")
+    logInfo(s"Delay: ${wait.toString}")
     Thread.sleep(wait.toMillis)
-    logInfo(f"Sending Mov1AB(${loopn}) to B, and waiting C's move")
+    logInfo(s"Sending Mov1AB(${loopn.toString}) to B, and waiting C's move")
     g.send(Mov1AB(loopn)).receive match {
       case Mov1CA(p, cont) => {
-        logInfo(f"Got Mov1CA(${p}), sending Mov2AB(true)")
+        logInfo(s"Got Mov1CA(${p.toString}), sending Mov2AB(true)")
         val g2 = cont.send(Mov2AB(true))
         g2.receive match {
           case Mov1CA(p, cont) => {
-            logInfo(f"Got Mov1CA(${p}), looping")
+            logInfo(s"Got Mov1CA(${p.toString}), looping")
             loop(cont, loopn + 1)
           }
           case Mov2CA(p, cont) => {
-            logInfo(f"Got Mov2CA(${p}), looping")
+            logInfo(s"Got Mov2CA(${p.toString}), looping")
             loop(cont, loopn + 1)
           }
         }
       }
       case Mov2CA(p, cont) => {
-        logInfo(f"Got Mov1CA(${p}), sending Mov1AB(${loopn + 1})")
+        logInfo(
+          s"Got Mov1CA(${p.toString}), sending Mov1AB(${(loopn + 1).toString})"
+        )
         val g2 = cont.send(Mov1AB(loopn + 1))
         g2.receive match {
           case Mov1CA(p, cont) => {
-            logInfo(f"Got Mov1CA(${p}), looping")
+            logInfo(s"Got Mov1CA(${p.toString}), looping")
             loop(cont, loopn + 2)
           }
           case Mov2CA(p, cont) => {
-            logInfo(f"Got Mov2CA(${p}), looping")
+            logInfo(s"Got Mov2CA(${p.toString}), looping")
             loop(cont, loopn + 2)
           }
         }
@@ -111,7 +118,7 @@ object Actor extends App {
   import binary.actor.{ConnectA => Connect}
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem(
+  implicit val as: ActorSystem = ActorSystem(
     "GameClientASys",
     config = Some(config.getConfig("GameClientASys")),
     defaultExecutionContext = Some(global)
@@ -120,10 +127,10 @@ object Actor extends App {
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
 
-  implicit val timeout = 60.seconds
+  implicit val timeout: FiniteDuration = 60.seconds
 
   val serverPath = "pekko://GameServerSys@127.0.0.1:31340/user/a"
-  println(f"[*] Connecting to ${serverPath}...")
+  println(s"[*] Connecting to ${serverPath.toString}...")
   val c: Out[Connect] = ActorOut[Connect](serverPath)
   val c2 = c !! Connect() _
 

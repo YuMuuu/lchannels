@@ -1,3 +1,24 @@
+lazy val wartremoverUnsafeWarnings = Seq(
+  "Any",
+  "AsInstanceOf",
+  "DefaultArguments",
+  "EitherProjectionPartial",
+  "IsInstanceOf",
+  "IterableOps",
+  "Null",
+  "OptionPartial",
+  "Product",
+  "Return",
+  "Serializable",
+  "StringPlusAny",
+  "Throw",
+  "TripleQuestionMark",
+  "TryPartial",
+  "Var"
+).map(wart =>
+  s"-P:wartremover:only-warn-traverser:org.wartremover.warts.${wart}"
+)
+
 lazy val commonSettings = Seq(
   version := "0.0.3",
   scalaVersion := "2.13.18",
@@ -6,9 +27,8 @@ lazy val commonSettings = Seq(
     "-unchecked",
     "-feature",
     "-Wunused:imports", // "-deprecation"
-    "-Yrangepos",
-    "-P:wartremover:only-warn-traverser:org.wartremover.warts.Unsafe"
-  ),
+    "-Yrangepos"
+  ) ++ wartremoverUnsafeWarnings,
   addCompilerPlugin(
     "org.scalameta" % "semanticdb-scalac" % "4.17.2" cross CrossVersion.full
   ),

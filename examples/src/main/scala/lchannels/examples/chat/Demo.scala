@@ -61,7 +61,7 @@ object Local extends App {
   println("*** Waiting for clients to terminate...")
   for (c <- clients) {
     c.join();
-    println(f"    **** ${c.spec.username} has terminated")
+    println(s"    **** ${c.spec.username.toString} has terminated")
   }
   println("*** All clients have terminated.  Now closing the frontend...")
   frontend.quit()

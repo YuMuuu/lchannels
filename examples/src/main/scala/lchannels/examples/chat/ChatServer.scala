@@ -122,11 +122,11 @@ class ChatServer(
 )(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${msg}")
-  private def logInfo(msg: String) = logger.info(f"${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${msg}")
-  private def logError(msg: String) = logger.error(f"${msg}")
+  private def logTrace(msg: String) = logger.trace(s"${msg.toString}")
+  private def logDebug(msg: String) = logger.debug(s"${msg.toString}")
+  private def logInfo(msg: String) = logger.info(s"${msg.toString}")
+  private def logWarn(msg: String) = logger.warn(s"${msg.toString}")
+  private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   // Server name, used for system messages
   protected[server] val serverName = "ChatServer"
@@ -172,18 +172,18 @@ class ChatServer(
   )(implicit timeout: Duration): Unit = {
     try {
       frontend ? { req =>
-        logDebug(f"got ${req}")
+        logDebug(s"got ${req.toString}")
         // Will be initialized later
         var res: Out[IntGetSession] => IntGetSessionResult = null
 
         sessions.synchronized {
           if (sessions.keySet.contains(req.id)) {
-            logDebug(f"active session found, recovering")
+            logDebug(s"active session found, recovering")
             val sessc = recoverSession(req.id)
-            logDebug(f"answering with active session")
+            logDebug(s"answering with active session")
             res = IntSuccess(sessc) _
           } else {
-            logDebug(f"no active session found")
+            logDebug(s"no active session found")
             res = IntFailure()
           }
         }
@@ -204,7 +204,7 @@ class ChatServer(
   )(implicit timeout: Duration): Unit = {
     try {
       authSrv ? { req =>
-        logDebug(f"got ${req}, preparing new session")
+        logDebug(s"got ${req.toString}, preparing new session")
         // Will be initialized later
         var res: Out[IntCreateSession] => IntNewSession = null
 
@@ -226,7 +226,7 @@ class ChatServer(
             res = IntNewSession(outc) _
           }
         }
-        logDebug(f"sending new session ${res}")
+        logDebug(s"sending new session ${res.toString}")
         createSessionLoop(req.cont !! res)
       }
     } catch {
@@ -252,7 +252,7 @@ class ChatServer(
   protected[server] def queueRequest(req: Try[SessionCommand]): Unit =
     req match {
       case Success(r) => {
-        logDebug(f"queueing ${r}")
+        logDebug(s"queueing ${r.toString}")
         requests.write(r)
       }
       case Failure(e) => logDebug("got failure, not enqueuing")
@@ -326,7 +326,10 @@ class ChatServer(
   // Remove the given chat room from the given session
   protected[server] def deleteChatRoom(id: Int, rname: String) =
     sessions.synchronized {
-      val rSub = sessions(id).rooms.remove(rname).get // Session+room must exist
+      val rSub = sessions(id).rooms.remove(rname) match {
+        case Some(subscription) => subscription
+        case None               => throw new NoSuchElementException()
+      }
       rSub.msgc ! room.Quit()
     }
 
@@ -371,11 +374,11 @@ private class SessionHandler(
 )(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${msg}")
-  private def logInfo(msg: String) = logger.info(f"${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${msg}")
-  private def logError(msg: String) = logger.error(f"${msg}")
+  private def logTrace(msg: String) = logger.trace(s"${msg.toString}")
+  private def logDebug(msg: String) = logger.debug(s"${msg.toString}")
+  private def logInfo(msg: String) = logger.info(s"${msg.toString}")
+  private def logWarn(msg: String) = logger.warn(s"${msg.toString}")
+  private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   // Server name, used for system messages
   protected[server] val serverName = chatServer.serverName
@@ -398,7 +401,7 @@ private class SessionHandler(
   def serverLoop(): Unit = {
     try {
       val req = requests.read
-      logDebug(f"dequeued ${req}")
+      logDebug(s"dequeued ${req.toString}")
       try {
         chatServer.assertSessionId(req.id)
         req.cmd match {
@@ -420,7 +423,7 @@ private class SessionHandler(
             chatServer.dispatchMessage(
               room,
               chatServer.serverName,
-              f"${chatServer.getUsername(req.id)} joined ${room}"
+              s"${chatServer.getUsername(req.id).toString} joined ${room.toString}"
             )
             reschedule(req.id, c)
           }
@@ -472,7 +475,7 @@ private class SessionHandler(
   protected[server] def queueRoomCtlRequest(req: Try[RoomCtlRequest]): Unit = {
     req match {
       case Success(r) => {
-        logDebug(f"queueing ${r}")
+        logDebug(s"queueing ${r.toString}")
         roomRequests.write(r)
       }
       case Failure(e) => logDebug("got failure, not enqueuing")
@@ -514,11 +517,11 @@ private class RoomHandler(
 )(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${msg}")
-  private def logInfo(msg: String) = logger.info(f"${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${msg}")
-  private def logError(msg: String) = logger.error(f"${msg}")
+  private def logTrace(msg: String) = logger.trace(s"${msg.toString}")
+  private def logDebug(msg: String) = logger.debug(s"${msg.toString}")
+  private def logInfo(msg: String) = logger.info(s"${msg.toString}")
+  private def logWarn(msg: String) = logger.warn(s"${msg.toString}")
+  private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
@@ -541,7 +544,7 @@ private class RoomHandler(
                 sessionHandler.dispatchMessage(
                   rname,
                   sessionHandler.serverName,
-                  f"${sessionHandler.getUsername(sId)} left ${rname}"
+                  s"${sessionHandler.getUsername(sId).toString} left ${rname.toString}"
                 )
                 serverLoop()
               }

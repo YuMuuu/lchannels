@@ -357,7 +357,7 @@ protected[lchannels] class ActorIn[T](dref: ActorRef)(
     if (atMost.isFinite) {
       val v = q.poll(atMost.length, atMost.unit)
       if (v == null) {
-        throw new TimeoutException(f"Input timed out after ${atMost}")
+        throw new TimeoutException(s"Input timed out after ${atMost.toString}")
       }
       v.get.asInstanceOf[T] // recvd value has type Try[T]
     } else {
@@ -366,7 +366,7 @@ protected[lchannels] class ActorIn[T](dref: ActorRef)(
   }
 
   override def toString() = {
-    f"ActorIn@${hashCode} (dispatcher: ${dref.path})"
+    s"ActorIn@${hashCode.toString} (dispatcher: ${dref.path.toString})"
   }
 }
 
@@ -469,7 +469,7 @@ protected[lchannels] class ActorOut[-T](val dref: ActorRef)(implicit
   }
 
   override def toString() = {
-    f"ActorOut@${hashCode} → ${dref.path}"
+    s"ActorOut@${hashCode.toString} → ${dref.path.toString}"
   }
 }
 

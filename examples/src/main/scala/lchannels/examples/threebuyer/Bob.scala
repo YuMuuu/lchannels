@@ -58,19 +58,23 @@ class Bob(
 
     logInfo("Waiting for book quote...")
     val quote = c2.receive
-    logInfo(f"Got quote: ${quote.p}.  Waiting to know Alice's share...")
+    logInfo(
+      s"Got quote: ${quote.p.toString}.  Waiting to know Alice's share..."
+    )
     val contrib = quote.cont.receive
-    logInfo(f"Got Alice's share: ${contrib.p}")
+    logInfo(s"Got Alice's share: ${contrib.p.toString}")
 
     val myShare = quote.p - contrib.p
     assert(myShare >= 0)
 
     val budget = 25
 
-    logInfo(f"My share is: ${myShare}; my maximum budget is: ${budget}")
+    logInfo(
+      s"My share is: ${myShare.toString}; my maximum budget is: ${budget.toString}"
+    )
     if (myShare > budget) {
       val needed = myShare - budget
-      logInfo(f"I need ${needed} more.  Involving Carol...")
+      logInfo(s"I need ${needed.toString} more.  Involving Carol...")
       delegateCarol(contrib.cont, needed)
     } else {
       logInfo("Accepting proposal, sending address, waiting delivery date")
@@ -79,7 +83,7 @@ class Bob(
         .send(OkS(()))
         .send(Address("Bob Smith, 221B Baker Street, London, UK"))
         .receive
-      logInfo(f"Got delivery date: ${delivery.p}")
+      logInfo(s"Got delivery date: ${delivery.p.toString}")
     }
 
     logInfo("Terminating.")
@@ -90,10 +94,10 @@ class Bob(
     val carol = MPContrib(carolConnector(logInfo))
 
     logInfo(
-      f"Telling Carol to contribute ${needed}; delegating session with Alice and Seller"
+      s"Telling Carol to contribute ${needed.toString}; delegating session with Alice and Seller"
     )
     val ccont = carol.send(Contrib(needed)).send(Delegate(s))
-    logInfo(f"Waiting for Carol's decision...")
+    logInfo(s"Waiting for Carol's decision...")
     ccont.receive match {
       case OkC(())   => logInfo("Carol accepted")
       case QuitC(()) => logInfo("Carol declined")
@@ -113,7 +117,7 @@ object Actor extends App {
   import binary.actor.{ConnectBob, ConnectCarol}
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem(
+  implicit val as: ActorSystem = ActorSystem(
     "ThreeBuyerBobSys",
     config = Some(config.getConfig("ThreeBuyerBobSys")),
     defaultExecutionContext = Some(global)
@@ -122,17 +126,17 @@ object Actor extends App {
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
 
-  implicit val timeout = 60.seconds
+  implicit val timeout: FiniteDuration = 60.seconds
 
   val sellerPath = "pekko://ThreeBuyerSellerSys@127.0.0.1:31350/user/bob"
-  println(f"[*] Connecting to ${sellerPath}...")
+  println(s"[*] Connecting to ${sellerPath.toString}...")
   val c: Out[ConnectBob] = ActorOut[ConnectBob](sellerPath)
   val c2 = c !! ConnectBob() _
 
   def connector(logger: String => Unit) = {
     // Path where Carol is waiting for Bob's connection
     val carolPath = "pekko://ThreeBuyerCarolSys@127.0.0.1:31353/user/bob"
-    logger(f"Connecting to ${carolPath}...")
+    logger(s"Connecting to ${carolPath.toString}...")
     val c: Out[ConnectCarol] = ActorOut[ConnectCarol](carolPath)
     c !! ConnectCarol() _
   }
