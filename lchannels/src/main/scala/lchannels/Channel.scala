@@ -49,8 +49,8 @@ class AlreadyUsed(message: String = "I/O endpoint already used")
 /** Base abstract class for linear input channel endpoints. */
 abstract class In[+T] extends Channel[Receive] {
   private var _future: Future[_] = null // Will actually be Future[T]
-  /** Return a future that will be completed when the channel endpoint
-    *  receives a value, or incurs in an input error.
+  /** Return a future that will be completed when the channel endpoint receives
+    * a value, or incurs in an input error.
     */
   def future(implicit ec: ExecutionContext) = synchronized {
     if (_future == null) {
@@ -66,11 +66,16 @@ abstract class In[+T] extends Channel[Receive] {
     * The default implementation of this method corresponds to
     * [[receive(implicit atMost:*]] with an infinite timeout value.
     *
-    * @throws AlreadyUsed if the channel endpoint was already used for input
-    * @throws java.lang.IllegalArgumentException if `atMost` is Duration.Undefined
-    * @throws java.lang.InterruptedException if the current thread is interrupted while waiting
-    * @throws java.util.concurrent.TimeoutException if after waiting for `atMost`, no message arrives
-    * @throws scala.util.control.NonFatal in case of other errors (e.g. deserialization or network issues)
+    * @throws AlreadyUsed
+    *   if the channel endpoint was already used for input
+    * @throws java.lang.IllegalArgumentException
+    *   if `atMost` is Duration.Undefined
+    * @throws java.lang.InterruptedException
+    *   if the current thread is interrupted while waiting
+    * @throws java.util.concurrent.TimeoutException
+    *   if after waiting for `atMost`, no message arrives
+    * @throws scala.util.control.NonFatal
+    *   in case of other errors (e.g. deserialization or network issues)
     */
   def receive(): T = {
     receive(Duration.Inf)
@@ -78,25 +83,33 @@ abstract class In[+T] extends Channel[Receive] {
 
   /** Receive and return a message, blocking until its arrival.
     *
-    * @param atMost Maximum wait time
+    * @param atMost
+    *   Maximum wait time
     *
-    * @throws AlreadyUsed if the channel endpoint was already used for input
-    * @throws java.lang.IllegalArgumentException if `atMost` is Duration.Undefined
-    * @throws java.lang.InterruptedException if the current thread is interrupted while waiting
-    * @throws java.util.concurrent.TimeoutException if after waiting for `atMost`, no message arrives
-    * @throws scala.util.control.NonFatal in case of other errors (e.g. deserialization or network issues)
+    * @throws AlreadyUsed
+    *   if the channel endpoint was already used for input
+    * @throws java.lang.IllegalArgumentException
+    *   if `atMost` is Duration.Undefined
+    * @throws java.lang.InterruptedException
+    *   if the current thread is interrupted while waiting
+    * @throws java.util.concurrent.TimeoutException
+    *   if after waiting for `atMost`, no message arrives
+    * @throws scala.util.control.NonFatal
+    *   in case of other errors (e.g. deserialization or network issues)
     */
   def receive(implicit atMost: Duration): T
 
-  /** Receive and return message, blocking until its arrival, or until a failure.
+  /** Receive and return message, blocking until its arrival, or until a
+    * failure.
     *
     * The default implementation of this method corresponds to
     * [[tryReceive(implicit atMost:*]] with an infinite timeout value.
     *
-    * Once a message `msg` is received, this method returns`Success(msg)`.
-    * In case of errors, the method returns `Failure(exception)`.
+    * Once a message `msg` is received, this method returns`Success(msg)`. In
+    * case of errors, the method returns `Failure(exception)`.
     *
-    * @param atMost Maximum wait time
+    * @param atMost
+    *   Maximum wait time
     */
   def tryReceive(): Try[T] = {
     try {
@@ -106,12 +119,14 @@ abstract class In[+T] extends Channel[Receive] {
     }
   }
 
-  /** Receive and return message, blocking until its arrival, or until a failure.
+  /** Receive and return message, blocking until its arrival, or until a
+    * failure.
     *
-    * Once a message `msg` is received, this method returns`Success(msg)`.
-    * In case of errors, the method returns `Failure(exception)`.
+    * Once a message `msg` is received, this method returns`Success(msg)`. In
+    * case of errors, the method returns `Failure(exception)`.
     *
-    * @param atMost Maximum wait time
+    * @param atMost
+    *   Maximum wait time
     */
   def tryReceive(implicit atMost: Duration): Try[T] = {
     try {
@@ -125,24 +140,30 @@ abstract class In[+T] extends Channel[Receive] {
     *
     * Once a message `msg` is received, this method returns `f(msg)`.
     *
-    * @param atMost Maximum wait time
+    * @param atMost
+    *   Maximum wait time
     *
-    * @throws java.lang.IllegalArgumentException if `atMost` is Duration.Undefined
-    * @throws java.lang.InterruptedException if the current thread is interrupted while waiting
-    * @throws java.util.concurrent.TimeoutException if after waiting for `atMost`, no message arrives
-    * @throws scala.util.control.NonFatal in case of other errors (e.g. deserialization or network issues)
+    * @throws java.lang.IllegalArgumentException
+    *   if `atMost` is Duration.Undefined
+    * @throws java.lang.InterruptedException
+    *   if the current thread is interrupted while waiting
+    * @throws java.util.concurrent.TimeoutException
+    *   if after waiting for `atMost`, no message arrives
+    * @throws scala.util.control.NonFatal
+    *   in case of other errors (e.g. deserialization or network issues)
     */
   def ?[R](f: T => R)(implicit atMost: Duration): R = {
     f(receive)
   }
 
-  /** Wait for a message or error, pass it as argument to `f`, get the return value.
+  /** Wait for a message or error, pass it as argument to `f`, get the return
+    * value.
     *
-    * Once a message `msg` is received, this method returns
-    * `f(Success(msg))`.  In case of errors, the method returns
-    * `f(Failure(exception))`.
+    * Once a message `msg` is received, this method returns `f(Success(msg))`.
+    * In case of errors, the method returns `f(Failure(exception))`.
     *
-    * @param atMost Maximum wait time
+    * @param atMost
+    *   Maximum wait time
     */
   def ??[R](f: Try[T] => R)(implicit atMost: Duration): R = {
     f(tryReceive)
@@ -152,8 +173,9 @@ abstract class In[+T] extends Channel[Receive] {
 /** Base abstract class for output channel endpoints. */
 abstract class Out[-T] extends Channel[Send] {
   private var _promise: Promise[_] = null // Will actually be Promise[T]
-  /** Return a promise that, once completed with a value `v`,
-    *  causes `v` to be sent along this channel endpoint. */
+  /** Return a promise that, once completed with a value `v`, causes `v` to be
+    * sent along this channel endpoint.
+    */
   def promise[U <: T] = synchronized {
     if (_promise == null) {
       _promise = Promise[Any] // Will be actually used as a Promise[T]
@@ -166,55 +188,53 @@ abstract class Out[-T] extends Channel[Send] {
   /** Return a pair of input/output linear channel endpoints */
   def create[U](): (In[U], Out[U])
 
-  /** Return a pair of input/output linear channel endpoints,
-    *  with the ''input'' one meant to be ''used'' to receive a value,
-    *  and the ''output'' meant to be ''sent'' as continuation
-    *  within a session.
+  /** Return a pair of input/output linear channel endpoints, with the ''input''
+    * one meant to be ''used'' to receive a value, and the ''output'' meant to
+    * be ''sent'' as continuation within a session.
     *
-    *  This method is mainly used internally,
-    *  e.g. by `!!`.
-    *  The main difference wrt. [[create]] is that
-    *  the returned channel endpoints might be optimized
-    *  for the use described above; as a consequence,
-    *  their behavior is undefined for other uses
-    *  (e.g., if the input endpoint is sent as continuation in a session).
+    * This method is mainly used internally, e.g. by `!!`. The main difference
+    * wrt. [[create]] is that the returned channel endpoints might be optimized
+    * for the use described above; as a consequence, their behavior is undefined
+    * for other uses (e.g., if the input endpoint is sent as continuation in a
+    * session).
     *
-    *  The default implementation is an alias for [[create[U]()*]].
-    *  Only use and/or override this method if you really know what you are doing.
+    * The default implementation is an alias for [[create[U]()*]]. Only use
+    * and/or override this method if you really know what you are doing.
     */
   def createContIn[U](): (In[U], Out[U]) = create[U]()
 
-  /** Return a pair of input/output linear channel endpoints,
-    *  with the ''input'' one meant to be ''sent'' as continuation
-    *  within session,
-    *  and the ''output'' meant to be ''used'' to send a value.
+  /** Return a pair of input/output linear channel endpoints, with the ''input''
+    * one meant to be ''sent'' as continuation within session, and the
+    * ''output'' meant to be ''used'' to send a value.
     *
-    *  This method is the "dual" of [[createContIn]], and similar remarks hold.
- 	*/
+    * This method is the "dual" of [[createContIn]], and similar remarks hold.
+    */
   def createContOut[U](): (In[U], Out[U]) = create[U]()
 
   /** Send a message.
     *
-    *  @param msg Message to be sent
+    * @param msg
+    *   Message to be sent
     *
-    *  @throws AlreadyUsed if the channel endpoint was already used for output
+    * @throws AlreadyUsed
+    *   if the channel endpoint was already used for output
     */
   def send(msg: T): Unit
 
   /** Alias for [[send]]. */
   def !(msg: T) = send(msg)
 
-  /** Create a pair of `U`-typed channel endpoints `(i,o)`,
-    *  send the return value of `f(i)`, and return `o`.
+  /** Create a pair of `U`-typed channel endpoints `(i,o)`, send the return
+    * value of `f(i)`, and return `o`.
     *
     * This method automates channel creation in continuation-passing-style
-    * protocols,
-    * when the ''input'' endpoint must be sent as part of a `T`-typed message
-    * (as returned by `f(i)`),
-    * and the ``output`` endpoint is later used to continue the interaction.
+    * protocols, when the ''input'' endpoint must be sent as part of a `T`-typed
+    * message (as returned by `f(i)`), and the ``output`` endpoint is later used
+    * to continue the interaction.
     *
-    * @param f Function that, when applied to an input channel endpoint,
-    *          returns the message to be sent.
+    * @param f
+    *   Function that, when applied to an input channel endpoint, returns the
+    *   message to be sent.
     */
   def !![U](f: In[U] => T): Out[U] = {
     val (cin, cout) = createContOut[U]()
@@ -222,17 +242,17 @@ abstract class Out[-T] extends Channel[Send] {
     cout
   }
 
-  /** Create a pair of `U`-typed channel endpoints `(i,o)`,
-    *  send the return value of `f(o)`, and return `i`.
+  /** Create a pair of `U`-typed channel endpoints `(i,o)`, send the return
+    * value of `f(o)`, and return `i`.
     *
     * This method automates channel creation in continuation-passing-style
-    * protocols,
-    * when the ''output'' endpoint must be sent as part of a `T`-typed message
-    * (as returned by `f(i)`),
-    * and the ``input`` endpoint is later used to continue the interaction.
+    * protocols, when the ''output'' endpoint must be sent as part of a
+    * `T`-typed message (as returned by `f(i)`), and the ``input`` endpoint is
+    * later used to continue the interaction.
     *
-    * @param f Function that, when applied to an output channel endpoint,
-    *          returns the message to be sent.
+    * @param f
+    *   Function that, when applied to an output channel endpoint, returns the
+    *   message to be sent.
     */
   def !![U](f: Out[U] => T): In[U] = {
     val (cin, cout) = createContIn[U]()
@@ -245,5 +265,5 @@ abstract class Out[-T] extends Channel[Send] {
   *
   * For most practical purposes, occurrences of this object can be often
   * replaced with `()`.
-  * */
+  */
 case object End extends Channel[None]

@@ -36,64 +36,74 @@ case class Stream()
 
 /** Base class for stream management and (de)serialization of messages.
   *
-  *  @param in Stream of input data
-  *  @param out Stream of output data
+  * @param in
+  *   Stream of input data
+  * @param out
+  *   Stream of output data
   */
 abstract class StreamManager(in: InputStream, out: OutputStream) {
 
   /** Read data from `in`, deserialize an object and return it.
     *
-    *  @param atMost Maximum wait time
-    *  @param ec Execution context where an internal Future will run
+    * @param atMost
+    *   Maximum wait time
+    * @param ec
+    *   Execution context where an internal Future will run
     *
-    *  @throws java.util.concurrent.TimeoutException if after waiting for `atMost`, no message arrives
-    *  @throws Exception if a deserialization error occurs.
+    * @throws java.util.concurrent.TimeoutException
+    *   if after waiting for `atMost`, no message arrives
+    * @throws Exception
+    *   if a deserialization error occurs.
     */
-  protected[lchannels] final def destreamer(atMost: Duration)(
-      implicit ec: ExecutionContext): Any = {
+  protected[lchannels] final def destreamer(
+      atMost: Duration
+  )(implicit ec: ExecutionContext): Any = {
     Await.result(Future { destreamer() }, atMost)
   }
 
   /** Read data from `in`, deserialize an object and return it.
     *
-    *  @throws Exception if a deserialization error occurs.
+    * @throws Exception
+    *   if a deserialization error occurs.
     */
   def destreamer(): Any
 
   /** Serialize an object and write it into `out`.
     *
-    *  @param x Object to serialize.
+    * @param x
+    *   Object to serialize.
     */
   def streamer(x: Any): Unit
 
   /** Close `in` and `out` streams.
     *
-    *  You could derive this method to perform additional cleanup
-    *  when closing the `StreamManager`.
+    * You could derive this method to perform additional cleanup when closing
+    * the `StreamManager`.
     */
   def close(): Unit = { in.close(); out.close() }
 
   /** Alias for [[close]]. */
   final override def finalize() = close()
 
-  /** Create a pair of I/O stream-based channel endpoints,
-    *  reading from `in` and writing to `out`.
+  /** Create a pair of I/O stream-based channel endpoints, reading from `in` and
+    * writing to `out`.
     *
-    *  @param ec Execution context for internal `Promise`/`Future` handling
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
     */
-  def factory[T]()(
-      implicit ec: ExecutionContext): (StreamIn[T], StreamOut[T]) = {
+  def factory[T]()(implicit
+      ec: ExecutionContext
+  ): (StreamIn[T], StreamOut[T]) = {
     (StreamIn[T](this), StreamOut[T](this))
   }
 }
 
-/** Stream-based input channel endpoint, usually created
-  *  through the [[[StreamIn$.apply* companion object]]]
-  *  or via [[StreamManager.factory]].
+/** Stream-based input channel endpoint, usually created through the
+  * [[[StreamIn$.apply* companion object]]] or via [[StreamManager.factory]].
   */
-protected[lchannels] class StreamIn[T](strm: StreamManager)(
-    implicit ec: ExecutionContext)
-    extends medium.In[Stream, T] {
+protected[lchannels] class StreamIn[T](strm: StreamManager)(implicit
+    ec: ExecutionContext
+) extends medium.In[Stream, T] {
   override def receive() = {
     strm.destreamer().asInstanceOf[T]
   }
@@ -108,17 +118,18 @@ object StreamIn {
 
   /** Return a stream-based input channel endpoint.
     *
-    * @param strm Stream manager owning the input/output data streams
-    * @param ec Execution context for internal `Promise`/`Future` handling
+    * @param strm
+    *   Stream manager owning the input/output data streams
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
     */
   def apply[T](strm: StreamManager)(implicit ec: ExecutionContext) = {
     new StreamIn[T](strm)
   }
 }
 
-/** Stream-based input channel endpoint, usually created
-  *  through the [[[StreamOut$.apply* companion object]]]
-  *  or via [[StreamManager.factory]].
+/** Stream-based input channel endpoint, usually created through the
+  * [[[StreamOut$.apply* companion object]]] or via [[StreamManager.factory]].
   */
 class StreamOut[-T](strm: StreamManager)(implicit ec: ExecutionContext)
     extends medium.Out[Stream, T] {
@@ -132,8 +143,10 @@ object StreamOut {
 
   /** Return a stream-based output channel endpoint.
     *
-    * @param strm Stream manager owning the input/output data streams
-    * @param ec Execution context for internal `Promise`/`Future` handling
+    * @param strm
+    *   Stream manager owning the input/output data streams
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
     */
   def apply[T](strm: StreamManager)(implicit ec: ExecutionContext) = {
     new StreamOut[T](strm)

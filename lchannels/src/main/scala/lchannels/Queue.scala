@@ -34,22 +34,23 @@ import java.util.concurrent.{LinkedTransferQueue => Fifo}
 /** Channel endpoints for local use, based on Java `LinkedTransferQueue`s.
   *
   * Queue-based channels are (almost) a drop-in replacement for
-  * [[LocalChannel]]s.  They are optimized for bypassing [[Out.promise]] and
+  * [[LocalChannel]]s. They are optimized for bypassing [[Out.promise]] and
   * [[In.future]] whenever possible, e.g. when a program mostly calls
   * [[Out.send]] and [[In.receive]]; as a consequence, if [[QueueOut.promise]]
   * or [[QueueIn.future]] are used, the performance will be impacted.
   *
   * <strong>NOTE</strong>: due to limitations of Java `LinkedTransferQueue`s,
   * invoking [[QueueIn.receive]] on a `QueueIn[Null]` instance with a
-  * <em>finite</em> wait time will cause a spurious timeout error.
-  * If you really need channel endpoints that carry `Null` values, you should
-  * use [[LocalChannel]]s.
+  * <em>finite</em> wait time will cause a spurious timeout error. If you really
+  * need channel endpoints that carry `Null` values, you should use
+  * [[LocalChannel]]s.
   */
 object QueueChannel {
 
   /** Create a pair of queue-based I/O channel endpoints.
     *
-    *  @param ec Execution context for internal `Promise`/`Future` handling
+    * @param ec
+    *   Execution context for internal `Promise`/`Future` handling
     */
   def factory[T]()(implicit ec: ExecutionContext): (QueueIn[T], QueueOut[T]) = {
     val fifo1 = new Fifo[Any]()
@@ -58,20 +59,25 @@ object QueueChannel {
   }
 
   /** Spawn two functions as threads communicating via a pair of queue-based
-    *  channel endpoints.
+    * channel endpoints.
     *
-    *  This method invokes [[factory]] to create a pair of channel endpoints
-    *  `(in,out)`, and then spawns `p1(in)` and `p2(out)`.
+    * This method invokes [[factory]] to create a pair of channel endpoints
+    * `(in,out)`, and then spawns `p1(in)` and `p2(out)`.
     *
-    *  @return A pair of `Future`s `(f1, f2)`, completed respectively when
-    *  `p1(in)` and `p2(out)` terminate.
+    * @return
+    *   A pair of `Future`s `(f1, f2)`, completed respectively when `p1(in)` and
+    *   `p2(out)` terminate.
     *
-    *  @param p1 Function using the input channel endpoint
-    *  @param p2 Function using the output channel endpoint
-    *  @param ec Execution context where the `p1` and `p2` will run
+    * @param p1
+    *   Function using the input channel endpoint
+    * @param p2
+    *   Function using the output channel endpoint
+    * @param ec
+    *   Execution context where the `p1` and `p2` will run
     */
-  def parallel[T, R1, R2](p1: QueueIn[T] => R1, p2: QueueOut[T] => R2)(
-      implicit ec: ExecutionContext): (Future[R1], Future[R2]) = {
+  def parallel[T, R1, R2](p1: QueueIn[T] => R1, p2: QueueOut[T] => R2)(implicit
+      ec: ExecutionContext
+  ): (Future[R1], Future[R2]) = {
     val (in, out) = factory[T]()
     (Future { blocking { p1(in) } }, Future { blocking { p2(out) } })
   }
@@ -92,7 +98,8 @@ class QueueIn[+T](fifo: Fifo[Any])(implicit ec: ExecutionContext)
       if (v == null) {
         // NOTE: if a null value is received, we treat it as a timeout
         throw new java.util.concurrent.TimeoutException(
-          f"Input timed out after ${atMost}")
+          f"Input timed out after ${atMost}"
+        )
       }
       v.asInstanceOf[T]
     } else {
@@ -101,10 +108,11 @@ class QueueIn[+T](fifo: Fifo[Any])(implicit ec: ExecutionContext)
   }
 }
 
-/** Queue-based output endpoint, usually created via [[QueueChannel.factory]]. */
-class QueueOut[-T](fifoW: Fifo[Any], fifoR: Fifo[Any])(
-    implicit ec: ExecutionContext)
-    extends medium.Out[Local, T] {
+/** Queue-based output endpoint, usually created via [[QueueChannel.factory]].
+  */
+class QueueOut[-T](fifoW: Fifo[Any], fifoR: Fifo[Any])(implicit
+    ec: ExecutionContext
+) extends medium.Out[Local, T] {
 
   override def send(msg: T): Unit = {
     markAsUsed()

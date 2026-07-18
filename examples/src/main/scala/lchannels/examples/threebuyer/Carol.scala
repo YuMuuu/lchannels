@@ -100,10 +100,11 @@ object Actor extends App {
   import akka.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem("ThreeBuyerCarolSys",
-                                config =
-                                  Some(config.getConfig("ThreeBuyerCarolSys")),
-                                defaultExecutionContext = Some(global))
+  implicit val as = ActorSystem(
+    "ThreeBuyerCarolSys",
+    config = Some(config.getConfig("ThreeBuyerCarolSys")),
+    defaultExecutionContext = Some(global)
+  )
 
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)

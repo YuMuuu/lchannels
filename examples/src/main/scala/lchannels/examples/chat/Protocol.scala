@@ -57,7 +57,8 @@ package session {
   case class Pong(msg: String)(val cont: Out[Command])
 
   case class ChatRoom(msgs: In[room.Messages], ctl: Out[roomctl.Control])(
-      val cont: Out[Command])
+      val cont: Out[Command]
+  )
 }
 
 package room {
@@ -93,7 +94,8 @@ package auth {
   // ?Authenticate(Credentials) . (!Success(S_act).end (+) !Failure().end)
   /////////////////////////////////////////////////////////////////////////////
   case class Authenticate(username: String, password: String)(
-      val cont: Out[AuthenticateResult])
+      val cont: Out[AuthenticateResult]
+  )
 
   sealed abstract class AuthenticateResult
   case class Success(service: Out[session.Command]) extends AuthenticateResult

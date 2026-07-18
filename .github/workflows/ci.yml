@@ -35,7 +35,7 @@ jobs:
         run: sbt compile
 
       - name: Scalafmt
-        run: sbt "scalafmt::test" "sbt:scalafmt::test"
+        run: sbt scalafmtCheckAll scalafmtSbtCheck
 
       - name: Scalafix
         run: sbt "scalafix --check"

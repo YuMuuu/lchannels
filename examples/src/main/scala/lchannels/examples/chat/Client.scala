@@ -33,9 +33,9 @@ import lchannels.examples.chat.protocol.public._
 
 import com.typesafe.scalalogging.StrictLogging
 
-class Client(frontend: Out[GetSession], val spec: ClientSpec)(
-    implicit timeout: Duration)
-    extends Runnable
+class Client(frontend: Out[GetSession], val spec: ClientSpec)(implicit
+    timeout: Duration
+) extends Runnable
     with StrictLogging {
   import scala.concurrent.duration._
 
@@ -61,16 +61,17 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(
   }
 
   private def loggedIn(srv: Out[session.Command]): Unit = {
-    (srv !! session.Join(roomName) _) ? {
-      case session.ChatRoom(msgc, ctl) =>
-        logInfo(f"joined chatroom ${roomName}")
-        chat(msgc, ctl, spec.msgCount)
+    (srv !! session.Join(roomName) _) ? { case session.ChatRoom(msgc, ctl) =>
+      logInfo(f"joined chatroom ${roomName}")
+      chat(msgc, ctl, spec.msgCount)
     }
   }
 
-  private def chat(msgc: In[room.Messages],
-                   ctlc: Out[roomctl.Control],
-                   msgCount: Int): Unit = {
+  private def chat(
+      msgc: In[room.Messages],
+      ctlc: Out[roomctl.Control],
+      msgCount: Int
+  ): Unit = {
     if (msgCount <= 0) {
       logInfo(f"leaving chatroom ${roomName}")
       ctlc ! roomctl.Quit()
@@ -81,7 +82,7 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(
       val ctlc2 = ctlc !! roomctl.SendMessage(text) _
       receiveMessages(msgc, spec.msgDelay) match {
         case Some(msgc2) => chat(msgc2, ctlc2, msgCount - 1)
-        case None => {
+        case None        => {
           logInfo(f"leaving chatroom ${roomName}")
           ctlc2 ! roomctl.Quit()
         }
@@ -89,8 +90,10 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(
     }
   }
 
-  private def receiveMessages(msgc: In[room.Messages],
-                              maxWait: Duration): Option[In[room.Messages]] = {
+  private def receiveMessages(
+      msgc: In[room.Messages],
+      maxWait: Duration
+  ): Option[In[room.Messages]] = {
     logDebug({
       val wait =
         if (maxWait.isFinite) f"${maxWait.toMillis / 1000.0}" else "Inf"
@@ -126,7 +129,7 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)(
   private def authenticate(srv: Out[auth.Authenticate]): Unit = {
     logInfo("authenticating")
     (srv !! auth.Authenticate(spec.username, spec.password) _) ? {
-      case auth.Failure() => logError("authentication failed")
+      case auth.Failure()    => logError("authentication failed")
       case auth.Success(srv) => {
         logInfo("authentication successful")
         loggedIn(srv)

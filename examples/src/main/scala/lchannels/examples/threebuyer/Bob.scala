@@ -34,9 +34,10 @@ import scala.concurrent.duration._
 
 import com.typesafe.scalalogging.StrictLogging
 
-class Bob(s: In[binary.PlayBob],
-          carolConnector: (String => Unit) => Out[binary.Contrib])(
-    implicit timeout: Duration)
+class Bob(
+    s: In[binary.PlayBob],
+    carolConnector: (String => Unit) => Out[binary.Contrib]
+)(implicit timeout: Duration)
     extends Runnable
     with StrictLogging {
   private def logTrace(msg: String) = logger.trace(msg)
@@ -89,7 +90,8 @@ class Bob(s: In[binary.PlayBob],
     val carol = MPContrib(carolConnector(logInfo))
 
     logInfo(
-      f"Telling Carol to contribute ${needed}; delegating session with Alice and Seller")
+      f"Telling Carol to contribute ${needed}; delegating session with Alice and Seller"
+    )
     val ccont = carol.send(Contrib(needed)).send(Delegate(s))
     logInfo(f"Waiting for Carol's decision...")
     ccont.receive match {
@@ -111,10 +113,11 @@ object Actor extends App {
   import binary.actor.{ConnectBob, ConnectCarol}
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem("ThreeBuyerBobSys",
-                                config =
-                                  Some(config.getConfig("ThreeBuyerBobSys")),
-                                defaultExecutionContext = Some(global))
+  implicit val as = ActorSystem(
+    "ThreeBuyerBobSys",
+    config = Some(config.getConfig("ThreeBuyerBobSys")),
+    defaultExecutionContext = Some(global)
+  )
 
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)

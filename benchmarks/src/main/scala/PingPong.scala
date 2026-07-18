@@ -82,8 +82,9 @@ object PromiseFutureImpl {
   ////////////////////////////////////////////////////////////////////////////
 
   @scala.annotation.tailrec
-  def pinger(p: Promise[Request], msg: String, ts: Long, n: Int)(
-      implicit d: Duration): Long = {
+  def pinger(p: Promise[Request], msg: String, ts: Long, n: Int)(implicit
+      d: Duration
+  ): Long = {
     // Update timestamp if not yet set, thus registering actual start time
     val ts2 = if (ts == 0) System.nanoTime() else ts
     if (n > 0) {
@@ -121,11 +122,13 @@ object ScalaChannelsImpl {
   case class Pong(msg: String)
 
   @scala.annotation.tailrec
-  def pinger(in: Channel[Pong],
-             out: Channel[Request],
-             msg: String,
-             ts: Long,
-             n: Int): Long = {
+  def pinger(
+      in: Channel[Pong],
+      out: Channel[Request],
+      msg: String,
+      ts: Long,
+      n: Int
+  ): Long = {
     // Update timestamp if not yet set, thus registering actual start time
     val ts2 = if (ts == 0) System.nanoTime() else ts
     if (n > 0) {
@@ -158,11 +161,13 @@ object JavaBlockingQueuesImpl {
   case class Pong(msg: String)
 
   @scala.annotation.tailrec
-  def pinger(in: BlockingQueue[Pong],
-             out: BlockingQueue[Request],
-             msg: String,
-             ts: Long,
-             n: Int): Long = {
+  def pinger(
+      in: BlockingQueue[Pong],
+      out: BlockingQueue[Request],
+      msg: String,
+      ts: Long,
+      n: Int
+  ): Long = {
     // Update timestamp if not yet set, thus registering actual start time
     val ts2 = if (ts == 0) System.nanoTime() else ts
     if (n > 0) {
@@ -186,9 +191,9 @@ object JavaBlockingQueuesImpl {
 
 /** Akka Typed implementation, optimized with actor reusage. */
 object AkkaTypedImpl {
-  import akka.typed.{ActorRef, Behavior}
-  import akka.typed.ScalaDSL.{ContextAware, Same, Stopped, Total}
-  import akka.typed.adapter.ActorSystemOps
+  import akka.actor.typed.{ActorRef, Behavior}
+  import akka.actor.typed.scaladsl.Behaviors
+  import akka.actor.typed.scaladsl.adapter._
 
   sealed abstract class Request
   case class Ping(msg: String, replyTo: ActorRef[Pong]) extends Request
@@ -196,90 +201,90 @@ object AkkaTypedImpl {
 
   case class Pong(msg: String, replyTo: ActorRef[Request])
 
-  def pingerBeh(msg: String, n: Int): Behavior[Pong] = {
-    ContextAware[Pong] { ctx =>
-      Total[Pong] {
+  def pingerBeh(msg: String, n: Int): Behavior[Pong] =
+    Behaviors.receive[Pong] { (ctx, received) =>
+      received match {
         case Pong(_, replyTo) => {
           if (n > 0) {
             val contBeh = ctx.spawnAnonymous(pingerBeh(msg, n - 1))
             replyTo ! Ping(msg, contBeh)
-            Same
+            Behaviors.same
           } else {
             replyTo ! Stop()
-            Stopped
+            Behaviors.stopped
           }
         }
       }
     }
-  }
 
-  def pongerBeh(endTS: Promise[Long]): Behavior[Request] = {
-    ContextAware[Request] { ctx =>
-      Total[Request] {
+  def pongerBeh(endTS: Promise[Long]): Behavior[Request] =
+    Behaviors.receive[Request] { (ctx, received) =>
+      received match {
         case Ping(msg, replyTo) => {
           val contBeh = ctx.spawnAnonymous(pongerBeh(endTS))
           replyTo ! Pong(msg, contBeh)
-          Same
+          Behaviors.same
         }
         case Stop() => {
           endTS success System.nanoTime()
-          Stopped
+          Behaviors.stopped
         }
       }
     }
-  }
 
-  def pingerBehOpt(msg: String, n: Int): Behavior[Pong] = {
-    ContextAware[Pong] { ctx =>
-      Total[Pong] {
+  def pingerBehOpt(msg: String, n: Int): Behavior[Pong] =
+    Behaviors.receive[Pong] { (ctx, received) =>
+      received match {
         case Pong(_, replyTo) => {
           if (n > 0) {
             replyTo ! Ping(msg, ctx.self)
             pingerBehOpt(msg, n - 1)
           } else {
             replyTo ! Stop()
-            Stopped
+            Behaviors.stopped
           }
         }
       }
     }
-  }
 
-  def pongerBehOpt(endTS: Promise[Long]): Behavior[Request] = {
-    ContextAware[Request] { ctx =>
-      Total[Request] {
+  def pongerBehOpt(endTS: Promise[Long]): Behavior[Request] =
+    Behaviors.receive[Request] { (ctx, received) =>
+      received match {
         case Ping(msg, replyTo) => {
           replyTo ! Pong(msg, ctx.self)
           pongerBehOpt(endTS)
         }
         case Stop() => {
           endTS success System.nanoTime()
-          Stopped
+          Behaviors.stopped
         }
       }
     }
-  }
 
-  def benchmark(msg: String, exchanges: Int, maxDuration: Duration)(
-      implicit as: akka.actor.ActorSystem): Long = {
+  def benchmark(msg: String, exchanges: Int, maxDuration: Duration)(implicit
+      as: akka.actor.ActorSystem
+  ): Long = {
     benchmarkImpl(msg, exchanges, maxDuration, pingerBeh, pongerBeh)
   }
 
-  def benchmarkOpt(msg: String, exchanges: Int, maxDuration: Duration)(
-      implicit as: akka.actor.ActorSystem): Long = {
+  def benchmarkOpt(msg: String, exchanges: Int, maxDuration: Duration)(implicit
+      as: akka.actor.ActorSystem
+  ): Long = {
     benchmarkImpl(msg, exchanges, maxDuration, pingerBehOpt, pongerBehOpt)
   }
 
-  private def benchmarkImpl(msg: String,
-                            exchanges: Int,
-                            maxDuration: Duration,
-                            pingerB: (String, Int) => Behavior[Pong],
-                            pongerB: Promise[Long] => Behavior[Request])(
-      implicit as: akka.actor.ActorSystem) = {
+  private def benchmarkImpl(
+      msg: String,
+      exchanges: Int,
+      maxDuration: Duration,
+      pingerB: (String, Int) => Behavior[Pong],
+      pongerB: Promise[Long] => Behavior[Request]
+  )(implicit as: akka.actor.ActorSystem): Long = {
     val endTS = Promise[Long]
 
-    val pingRef = ActorSystemOps(as).spawnAnonymous(pingerB(msg, exchanges - 1)) // We will send the first Ping
-    val pongRef = ActorSystemOps(as).spawnAnonymous(pongerB(endTS))
+    // We will send the first Ping
+    val pingRef = as.spawnAnonymous(pingerB(msg, exchanges - 1))
+    val pongRef = as.spawnAnonymous(pongerB(endTS))
 
     val startTS = System.nanoTime()
     pongRef ! Ping(msg, pingRef)
@@ -316,15 +321,21 @@ object Benchmark {
     println(f"*** Ping-Pong benchmark (${exchanges} message exchanges)")
 
     val benchmarks = List(
-      Bench("lchannels (Promise/Future)",
-            () => lBench(LocalChannel.parallel, msg, exchanges, maxWait),
-            MBuffer()),
-      Bench("Promise/Future",
-            () => pfBench(msg, exchanges, maxWait),
-            MBuffer()),
-      Bench("Scala channels",
-            () => scBench(msg, exchanges, maxWait),
-            MBuffer()),
+      Bench(
+        "lchannels (Promise/Future)",
+        () => lBench(LocalChannel.parallel, msg, exchanges, maxWait),
+        MBuffer()
+      ),
+      Bench(
+        "Promise/Future",
+        () => pfBench(msg, exchanges, maxWait),
+        MBuffer()
+      ),
+      Bench(
+        "Scala channels",
+        () => scBench(msg, exchanges, maxWait),
+        MBuffer()
+      ),
       Bench(
         "ArrayBlockingQueues",
         () => {
@@ -333,18 +344,22 @@ object Benchmark {
             exchanges,
             () =>
               new java.util.concurrent.ArrayBlockingQueue[
-                JavaBlockingQueuesImpl.Pong](exchanges + 1),
+                JavaBlockingQueuesImpl.Pong
+              ](exchanges + 1),
             () =>
               new java.util.concurrent.ArrayBlockingQueue[
-                JavaBlockingQueuesImpl.Request](exchanges + 1),
+                JavaBlockingQueuesImpl.Request
+              ](exchanges + 1),
             maxWait
           )
         },
         MBuffer()
       ),
-      Bench("lchannels (queues)",
-            () => lBench(QueueChannel.parallel, msg, exchanges, maxWait),
-            MBuffer()),
+      Bench(
+        "lchannels (queues)",
+        () => lBench(QueueChannel.parallel, msg, exchanges, maxWait),
+        MBuffer()
+      ),
       Bench(
         "LinkedTransferQueues",
         () => {
@@ -353,18 +368,22 @@ object Benchmark {
             exchanges,
             () =>
               new java.util.concurrent.LinkedTransferQueue[
-                JavaBlockingQueuesImpl.Pong](),
+                JavaBlockingQueuesImpl.Pong
+              ](),
             () =>
               new java.util.concurrent.LinkedTransferQueue[
-                JavaBlockingQueuesImpl.Request](),
+                JavaBlockingQueuesImpl.Request
+              ](),
             maxWait
           )
         },
         MBuffer()
       ),
-      Bench("lchannels (actors)",
-            () => lBench(ActorChannel.parallel, msg, exchanges, maxWait),
-            MBuffer())
+      Bench(
+        "lchannels (actors)",
+        () => lBench(ActorChannel.parallel, msg, exchanges, maxWait),
+        MBuffer()
+      )
       // Bench("Akka Typed",
       //       () => AkkaTypedImpl.benchmark(msg, exchanges, maxWait),
       //       MBuffer()),
@@ -393,11 +412,14 @@ object Benchmark {
   }
 
   private def lBench(
-      parallel: (In[Request] => Long, Out[Request] => Long) => (Future[Long],
-                                                                Future[Long]),
+      parallel: (In[Request] => Long, Out[Request] => Long) => (
+          Future[Long],
+          Future[Long]
+      ),
       msg: String,
       exchanges: Int,
-      maxWait: Duration)(implicit d: Duration): Long = {
+      maxWait: Duration
+  )(implicit d: Duration): Long = {
     val (pong, ping) = parallel(
       LChannelsImpl.ponger(_),
       LChannelsImpl.pinger(_, msg, 0, exchanges)
@@ -407,8 +429,9 @@ object Benchmark {
     endTS - startTS
   }
 
-  private def pfBench(msg: String, exchanges: Int, maxWait: Duration)(
-      implicit d: Duration): Long = {
+  private def pfBench(msg: String, exchanges: Int, maxWait: Duration)(implicit
+      d: Duration
+  ): Long = {
     val p = Promise[PromiseFutureImpl.Request]; val f = p.future
 
     val ping = Future {
@@ -443,7 +466,8 @@ object Benchmark {
       exchanges: Int,
       qFactoryPong: () => BlockingQueue[JavaBlockingQueuesImpl.Pong],
       qFactoryRequest: () => BlockingQueue[JavaBlockingQueuesImpl.Request],
-      maxWait: Duration): Long = {
+      maxWait: Duration
+  ): Long = {
     import JavaBlockingQueuesImpl.{pinger, ponger}
 
     // Make the queues big enough to contain all the message exchanges

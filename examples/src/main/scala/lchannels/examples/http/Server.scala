@@ -51,7 +51,8 @@ object Server extends App {
   val ssocket = new ServerSocket(port, 0, address)
 
   println(
-    f"[*] HTTP server listening on: http://${address.getHostAddress}:${port}/")
+    f"[*] HTTP server listening on: http://${address.getHostAddress}:${port}/"
+  )
   println(f"[*] Root directory: ${root}")
   println(f"[*] Press Ctrl+C to terminate")
 
@@ -138,14 +139,16 @@ class Worker(id: Int, socket: Socket, root: Path)(implicit timeout: Duration)
   private def getRequest(c: MPRequest)(implicit timeout: Duration) = {
     val req = c.receive
     logInfo(
-      f"Method: ${req.p.method}; path: ${req.p.path}; version: ${req.p.version}")
+      f"Method: ${req.p.method}; path: ${req.p.path}; version: ${req.p.version}"
+    )
     val cont = choices(req.cont)
     (req.p.path, cont)
   }
 
   @scala.annotation.tailrec
-  private def choices(c: MPRequestChoice)(
-      implicit timeout: Duration): MPHttpVersion = c.receive match {
+  private def choices(
+      c: MPRequestChoice
+  )(implicit timeout: Duration): MPHttpVersion = c.receive match {
     case Accept(p, cont) => {
       logInfo(f"Client accepts: ${p}")
       choices(cont)
@@ -189,8 +192,11 @@ class Worker(id: Int, socket: Socket, root: Path)(implicit timeout: Duration)
     c.send(Code404("Not Found"))
       .send(ServerName(serverName))
       .send(Date(ZonedDateTime.now))
-      .send(ResponseBody(
-        Body("text/plain", f"Resource ${res} not found".getBytes("UTF-8"))))
+      .send(
+        ResponseBody(
+          Body("text/plain", f"Resource ${res} not found".getBytes("UTF-8"))
+        )
+      )
   }
 
   private def serveFile(c: MPResponseChoice, file: Path) = {
@@ -205,13 +211,19 @@ class Worker(id: Int, socket: Socket, root: Path)(implicit timeout: Duration)
     // TODO: for simplicity, we assume all files are UTF-8
     c.send(
       ResponseBody(
-        Body(f"${contentType}; charset=utf-8",
-             java.nio.file.Files.readAllBytes(file))))
+        Body(
+          f"${contentType}; charset=utf-8",
+          java.nio.file.Files.readAllBytes(file)
+        )
+      )
+    )
   }
 
-  private def serveDirectory(c: MPResponseChoice,
-                             rpath: String,
-                             dir: java.io.File) = {
+  private def serveDirectory(
+      c: MPResponseChoice,
+      rpath: String,
+      dir: java.io.File
+  ) = {
     logInfo(f"Serving directory: ${dir}")
 
     val list = dir.listFiles.foldLeft("") { (a, i) =>

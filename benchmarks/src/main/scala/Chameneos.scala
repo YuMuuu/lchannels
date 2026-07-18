@@ -59,10 +59,11 @@ object LChannelsImpl {
   case class Answer(name: String, color: Color)
   ////////////////////////////////////////////////////////////////////////////
 
-  class Broker(meetings: Int,
-               rfactory: () => (In[Response], Out[Response]),
-               cfactory: () => (In[Greeting], Out[Greeting]))(
-      implicit ec: ExecutionContext)
+  class Broker(
+      meetings: Int,
+      rfactory: () => (In[Response], Out[Response]),
+      cfactory: () => (In[Greeting], Out[Greeting])
+  )(implicit ec: ExecutionContext)
       extends Runnable {
     // Queue of requests from chameneos
     private val requests = new Fifo[Out[Response]]()
@@ -109,9 +110,9 @@ object LChannelsImpl {
     }
   }
 
-  class Chameneos(name: String, var color: Color, broker: Broker)(
-      implicit ec: ExecutionContext)
-      extends Runnable {
+  class Chameneos(name: String, var color: Color, broker: Broker)(implicit
+      ec: ExecutionContext
+  ) extends Runnable {
     // Own thread
     private val thread = { val t = new Thread(this); t.start(); t }
     def join() = thread.join()
@@ -205,10 +206,10 @@ object PromiseFutureImpl {
     }
   }
 
-  class Chameneos(name: String, var color: Color, broker: Broker)(
-      implicit ec: ExecutionContext,
-      timeout: Duration)
-      extends Runnable {
+  class Chameneos(name: String, var color: Color, broker: Broker)(implicit
+      ec: ExecutionContext,
+      timeout: Duration
+  ) extends Runnable {
     // Own thread
     private val thread = { val t = new Thread(this); t.start(); t }
     def join() = thread.join()
@@ -306,10 +307,10 @@ object ScalaChannelsImpl {
     }
   }
 
-  class Chameneos(name: String, var color: Color, broker: Broker)(
-      implicit ec: ExecutionContext,
-      timeout: Duration)
-      extends Runnable {
+  class Chameneos(name: String, var color: Color, broker: Broker)(implicit
+      ec: ExecutionContext,
+      timeout: Duration
+  ) extends Runnable {
     // Own thread
     private val thread = { val t = new Thread(this); t.start(); t }
     def join() = thread.join()
@@ -356,11 +357,12 @@ object JavaBlockingQueuesImpl {
   case class Answer(name: String, color: Color)
   ////////////////////////////////////////////////////////////////////////////
 
-  class Broker(meetings: Int,
-               rfactory: () => BQueue[Response],
-               gfactory: () => BQueue[Greeting],
-               afactory: () => BQueue[Answer])(implicit ec: ExecutionContext,
-                                               timeout: Duration)
+  class Broker(
+      meetings: Int,
+      rfactory: () => BQueue[Response],
+      gfactory: () => BQueue[Greeting],
+      afactory: () => BQueue[Answer]
+  )(implicit ec: ExecutionContext, timeout: Duration)
       extends Runnable {
     // Queue of requests from chameneos
     private val requests = new Fifo[BQueue[Response]]()
@@ -409,10 +411,10 @@ object JavaBlockingQueuesImpl {
     }
   }
 
-  class Chameneos(name: String, var color: Color, broker: Broker)(
-      implicit ec: ExecutionContext,
-      timeout: Duration)
-      extends Runnable {
+  class Chameneos(name: String, var color: Color, broker: Broker)(implicit
+      ec: ExecutionContext,
+      timeout: Duration
+  ) extends Runnable {
     // Own thread
     private val thread = { val t = new Thread(this); t.start(); t }
     def join() = thread.join()
@@ -470,22 +472,31 @@ object Benchmark {
     val meetings = msgCount / (3 * 2)
 
     println(
-      f"*** Chameneos benchmark (${nChameneos} chameneos, ${meetings} meeting(s))")
+      f"*** Chameneos benchmark (${nChameneos} chameneos, ${meetings} meeting(s))"
+    )
 
     val benchmarks = List(
-      Bench("lchannels (Promise/Future)",
-            () =>
-              lBenchmark(() => LocalChannel.factory(),
-                         () => LocalChannel.factory(),
-                         nChameneos,
-                         meetings),
-            MBuffer()),
-      Bench("Promise/Future",
-            () => pfBenchmark(nChameneos, meetings),
-            MBuffer()),
-      Bench("Scala channels",
-            () => scBenchmark(nChameneos, meetings),
-            MBuffer()),
+      Bench(
+        "lchannels (Promise/Future)",
+        () =>
+          lBenchmark(
+            () => LocalChannel.factory(),
+            () => LocalChannel.factory(),
+            nChameneos,
+            meetings
+          ),
+        MBuffer()
+      ),
+      Bench(
+        "Promise/Future",
+        () => pfBenchmark(nChameneos, meetings),
+        MBuffer()
+      ),
+      Bench(
+        "Scala channels",
+        () => scBenchmark(nChameneos, meetings),
+        MBuffer()
+      ),
       Bench(
         "ArrayBlockingQueues",
         () =>
@@ -495,16 +506,20 @@ object Benchmark {
             () => new java.util.concurrent.ArrayBlockingQueue[JQResponse](1),
             () => new java.util.concurrent.ArrayBlockingQueue[JQGreeting](1),
             () => new java.util.concurrent.ArrayBlockingQueue[JQAnswer](1)
-        ),
+          ),
         MBuffer()
       ),
-      Bench("lchannels (queues)",
-            () =>
-              lBenchmark(QueueChannel.factory,
-                         QueueChannel.factory,
-                         nChameneos,
-                         meetings),
-            MBuffer()),
+      Bench(
+        "lchannels (queues)",
+        () =>
+          lBenchmark(
+            QueueChannel.factory,
+            QueueChannel.factory,
+            nChameneos,
+            meetings
+          ),
+        MBuffer()
+      ),
       Bench(
         "LinkedTransferQueues",
         () =>
@@ -514,16 +529,20 @@ object Benchmark {
             () => new java.util.concurrent.LinkedTransferQueue[JQResponse](),
             () => new java.util.concurrent.LinkedTransferQueue[JQGreeting](),
             () => new java.util.concurrent.LinkedTransferQueue[JQAnswer]()
-        ),
+          ),
         MBuffer()
       ),
-      Bench("lchannels (actors)",
-            () =>
-              lBenchmark(ActorChannel.factory,
-                         ActorChannel.factory,
-                         nChameneos,
-                         meetings),
-            MBuffer())
+      Bench(
+        "lchannels (actors)",
+        () =>
+          lBenchmark(
+            ActorChannel.factory,
+            ActorChannel.factory,
+            nChameneos,
+            meetings
+          ),
+        MBuffer()
+      )
     )
 
     val rnd = new scala.util.Random()
@@ -556,7 +575,8 @@ object Benchmark {
       rfactory: () => (In[LResponse], Out[LResponse]),
       cfactory: () => (In[LGreeting], Out[LGreeting]),
       nChameneos: Int,
-      meetings: Int)(implicit ec: ExecutionContext, d: Duration): Long = {
+      meetings: Int
+  )(implicit ec: ExecutionContext, d: Duration): Long = {
     import LChannelsImpl.{Broker, Chameneos}
     val broker = new Broker(meetings, rfactory, cfactory)(ec)
 
@@ -573,9 +593,10 @@ object Benchmark {
     endTime
   }
 
-  private def pfBenchmark(nChameneos: Int, meetings: Int)(
-      implicit ec: ExecutionContext,
-      d: Duration): Long = {
+  private def pfBenchmark(nChameneos: Int, meetings: Int)(implicit
+      ec: ExecutionContext,
+      d: Duration
+  ): Long = {
     import PromiseFutureImpl.{Broker, Chameneos}
     val broker = new Broker(meetings)(ec, d)
 
@@ -592,9 +613,10 @@ object Benchmark {
     endTime
   }
 
-  private def scBenchmark(nChameneos: Int, meetings: Int)(
-      implicit ec: ExecutionContext,
-      d: Duration): Long = {
+  private def scBenchmark(nChameneos: Int, meetings: Int)(implicit
+      ec: ExecutionContext,
+      d: Duration
+  ): Long = {
     import ScalaChannelsImpl.{Broker, Chameneos}
     val broker = new Broker(meetings)(ec, d)
 
@@ -611,13 +633,13 @@ object Benchmark {
     endTime
   }
 
-  private def jqBenchmark(nChameneos: Int,
-                          meetings: Int,
-                          rfactory: () => BlockingQueue[JQResponse],
-                          gfactory: () => BlockingQueue[JQGreeting],
-                          afactory: () => BlockingQueue[JQAnswer])(
-      implicit ec: ExecutionContext,
-      d: Duration): Long = {
+  private def jqBenchmark(
+      nChameneos: Int,
+      meetings: Int,
+      rfactory: () => BlockingQueue[JQResponse],
+      gfactory: () => BlockingQueue[JQGreeting],
+      afactory: () => BlockingQueue[JQAnswer]
+  )(implicit ec: ExecutionContext, d: Duration): Long = {
     import JavaBlockingQueuesImpl.{Broker, Chameneos}
     val broker = new Broker(meetings, rfactory, gfactory, afactory)(ec, d)
 

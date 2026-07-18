@@ -24,12 +24,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-/** Binary protocol classes for the multiparty game.
-  *  The classes in this package have been automatically generated from the
-  *  multiparty game protocol:
-  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
+/** Binary protocol classes for the multiparty game. The classes in this package
+  * have been automatically generated from the multiparty game protocol:
+  * https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
   *
-  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  * @author
+  *   Alceste Scalas <alceste.scalas@imperial.ac.uk>
+  */
 package lchannels.examples.game.protocol.binary
 
 import lchannels._
@@ -63,8 +64,8 @@ case class Mov2BC(p: Boolean)(val cont: In[Mov1BCOrMov2BC])
 case class PlayC(p: c.MPInfoBC)
 // No more protocol classes needed for player C: they are shared with A and B
 
-/** Binary protocol classes for establishing a client/server connection
-  *  (used e.g. in the actor-based demo)
+/** Binary protocol classes for establishing a client/server connection (used
+  * e.g. in the actor-based demo)
   */
 package object actor {
   case class ConnectA()(val cont: Out[PlayA])

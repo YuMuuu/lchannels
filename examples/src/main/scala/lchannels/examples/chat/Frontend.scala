@@ -46,11 +46,11 @@ import lchannels.examples.chat.protocol.internal.auth.{
 }
 
 /** Chat server frontend */
-class Frontend(sessionSrv: Out[IntGetSession],
-               authSrv: Out[IntGetAuth],
-               factory: () => (In[GetSession], Out[GetSession]))(
-    implicit ec: ExecutionContext,
-    timeout: Duration)
+class Frontend(
+    sessionSrv: Out[IntGetSession],
+    authSrv: Out[IntGetAuth],
+    factory: () => (In[GetSession], Out[GetSession])
+)(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
   import scala.concurrent.Channel
@@ -93,7 +93,8 @@ class Frontend(sessionSrv: Out[IntGetSession],
   @tailrec
   private def serverLoop(
       sessionSrv: Out[IntGetSession],
-      authSrv: Out[IntGetAuth])(implicit timeout: Duration): Unit = {
+      authSrv: Out[IntGetAuth]
+  )(implicit timeout: Duration): Unit = {
     var req: GetSession = null
 
     try {
@@ -110,10 +111,11 @@ class Frontend(sessionSrv: Out[IntGetSession],
     serverLoop(sessionSrv2, authSrv2)
   }
 
-  private def serve(req: GetSession,
-                    sessionSrv: Out[IntGetSession],
-                    authSrv: Out[IntGetAuth])(
-      implicit timeout: Duration): (Out[IntGetSession], Out[IntGetAuth]) = {
+  private def serve(
+      req: GetSession,
+      sessionSrv: Out[IntGetSession],
+      authSrv: Out[IntGetAuth]
+  )(implicit timeout: Duration): (Out[IntGetSession], Out[IntGetAuth]) = {
     logDebug(f"trying to retrieve active session")
     (sessionSrv !! IntGetSession(req.id) _) ? {
       case ssrv @ IntSuccess(sessc) => {

@@ -1,22 +1,24 @@
 lazy val commonSettings = Seq(
   version := "0.0.3",
-  scalaVersion := "2.12.14",
+  scalaVersion := "2.13.18",
   scalacOptions ++= Seq(
     "-target:jvm-1.8",
     "-unchecked",
     "-feature",
-    "-Ywarn-unused-import", // "-deprecation"
+    "-Wunused:imports", // "-deprecation"
     "-Yrangepos",
     "-P:wartremover:only-warn-traverser:org.wartremover.warts.Unsafe"
   ),
   addCompilerPlugin(
-    "org.scalameta" % "semanticdb-scalac" % "4.8.4" cross CrossVersion.full),
+    "org.scalameta" % "semanticdb-scalac" % "4.17.2" cross CrossVersion.full
+  ),
   addCompilerPlugin(
-    "org.wartremover" %% "wartremover" % "3.1.8" cross CrossVersion.full),
+    "org.wartremover" %% "wartremover" % "3.6.1" cross CrossVersion.full
+  ),
   scalafixOnCompile := false,
   // ScalaDoc setup
   autoAPIMappings := true,
-  scalacOptions in (Compile, doc) ++= Seq(
+  Compile / doc / scalacOptions ++= Seq(
     "-no-link-warnings" // Workaround for ScalaDoc @throws links issues
   )
 )
@@ -26,8 +28,9 @@ lazy val lchannels = (project in file("lchannels"))
   .settings(
     name := "lchannels",
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-typed" % "2.5.0",
-      "com.typesafe.akka" %% "akka-remote" % "2.5.0"
+      "com.typesafe.akka" %% "akka-actor" % "2.6.21",
+      "com.typesafe.akka" %% "akka-actor-typed" % "2.6.21",
+      "com.typesafe.akka" %% "akka-remote" % "2.6.21"
     )
   )
 
@@ -37,8 +40,8 @@ lazy val examples = (project in file("examples"))
   .settings(
     name := "lchannels-examples",
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-simple" % "1.7.25",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"
+      "org.slf4j" % "slf4j-simple" % "1.7.36",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6"
     )
   )
 
@@ -61,8 +64,8 @@ lazy val root = (project in file("."))
     publishArtifact := false,
     // Kludge to avoid building an empty .jar for the root project
     Keys.`package` := {
-      (Keys.`package` in (lchannels, Compile)).value
-      (Keys.`package` in (examples, Compile)).value
-      (Keys.`package` in (benchmarks, Compile)).value
+      (lchannels / Compile / Keys.`package`).value
+      (examples / Compile / Keys.`package`).value
+      (benchmarks / Compile / Keys.`package`).value
     }
   )

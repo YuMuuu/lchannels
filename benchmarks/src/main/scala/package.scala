@@ -35,7 +35,8 @@ package object benchmarks {
   def main(args: Array[String]): Unit = {
     val savePath = if (args.length < 1) {
       throw new IllegalArgumentException(
-        "You must provide the path for saving benchmark results")
+        "You must provide the path for saving benchmark results"
+      )
     } else {
       args(0)
     }
@@ -48,39 +49,47 @@ package object benchmarks {
   def run(savePath: String, msgCount: Int): Unit = {
     import java.nio.file.Paths
 
-    case class Benchmark(title: String,
-                         benchf: () => BenchmarkResults,
-                         filename: String)
+    case class Benchmark(
+        title: String,
+        benchf: () => BenchmarkResults,
+        filename: String
+    )
 
     val repetitions = 30 // 30 should be the minimum for one JVM invocation
 
     println(
-      f"Starting benchmarks: ${msgCount} minimum message transmissions, ${repetitions} repetitions")
+      f"Starting benchmarks: ${msgCount} minimum message transmissions, ${repetitions} repetitions"
+    )
 
     val benchmarks = List(
-      Benchmark(title = f"Ping-pong (${msgCount} message exchanges)",
-                benchf =
-                  () => pingpong.Benchmark(msgCount * 2, repetitions, "Token"),
-                filename = "pingpong.csv"),
+      Benchmark(
+        title = f"Ping-pong (${msgCount} message exchanges)",
+        benchf = () => pingpong.Benchmark(msgCount * 2, repetitions, "Token"),
+        filename = "pingpong.csv"
+      ),
       Benchmark(
         title = f"Ring (${1000} processes, ${msgCount / 1000} loops)",
         benchf = () =>
-          ring.Benchmark(ring.Benchmark.Standard(),
-                         msgCount,
-                         1000,
-                         repetitions,
-                         "Token"),
+          ring.Benchmark(
+            ring.Benchmark.Standard(),
+            msgCount,
+            1000,
+            repetitions,
+            "Token"
+          ),
         filename = "ring.csv"
       ),
       Benchmark(
         title =
           f"Streaming (${16} processes, ${msgCount * 3 / 2} msgs sent/recvd)",
         benchf = () =>
-          ring.Benchmark(ring.Benchmark.Streaming(),
-                         msgCount * 3 / 2,
-                         16,
-                         repetitions,
-                         "Token"),
+          ring.Benchmark(
+            ring.Benchmark.Streaming(),
+            msgCount * 3 / 2,
+            16,
+            repetitions,
+            "Token"
+          ),
         filename = "ring-stream.csv"
       ),
       Benchmark(
@@ -98,9 +107,11 @@ package object benchmarks {
     }
   }
 
-  private def runAndSave(title: String,
-                         benchf: () => BenchmarkResults,
-                         filename: String): Unit = {
+  private def runAndSave(
+      title: String,
+      benchf: () => BenchmarkResults,
+      filename: String
+  ): Unit = {
     import java.io.{File, PrintWriter}
 
     val delim = ","

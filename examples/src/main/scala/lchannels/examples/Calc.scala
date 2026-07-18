@@ -59,9 +59,9 @@ import java.io.{
   OutputStream
 }
 
-class CalcStreamManager(in: InputStream, out: OutputStream)(
-    implicit ec: ExecutionContext)
-    extends StreamManager(in, out) {
+class CalcStreamManager(in: InputStream, out: OutputStream)(implicit
+    ec: ExecutionContext
+) extends StreamManager(in, out) {
   private val inb = new BufferedReader(new InputStreamReader(in))
   private val welcomeR = """WELCOME (.+)""".r
   private val answerR = """ANSWER (-?\d+)""".r
@@ -69,7 +69,7 @@ class CalcStreamManager(in: InputStream, out: OutputStream)(
   override def destreamer() = inb.readLine() match {
     case welcomeR(msg) => Welcome(msg)(StreamOut[Choice](this))
     case answerR(n)    => Answer(n.toInt)(StreamOut[Choice](this))
-    case unknown => {
+    case unknown       => {
       close()
       throw new java.net.ProtocolException(f"Unknown message: '${unknown}'")
     }
@@ -93,7 +93,7 @@ class CalcSocketManager(socket: java.net.Socket) extends SocketManager(socket) {
   override def destreamer() = inb.readLine() match {
     case welcomeR(msg) => Welcome(msg)(SocketOut[Choice](this))
     case answerR(n)    => Answer(n.toInt)(SocketOut[Choice](this))
-    case unknown => {
+    case unknown       => {
       close()
       throw new java.net.ProtocolException(f"Unknown message: '${unknown}'")
     }
@@ -198,7 +198,8 @@ object Queue extends App {
   implicit val timeout = 5.seconds
 
   println(
-    "[*] Spawning local server and client (using queue-based channels)...")
+    "[*] Spawning local server and client (using queue-based channels)..."
+  )
   val (s, c) = parallel[Welcome, Unit, Unit](
     Client(_),
     Server(_)

@@ -26,18 +26,18 @@
 /** @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package object lchannels {
 
-  /** Convenience trait allowing to distinguish the intended direction
-    *  of a channel or a message type.
+  /** Convenience trait allowing to distinguish the intended direction of a
+    * channel or a message type.
     */
   sealed trait Direction
 
-  /** Convenience trait for output channels,
-    *  and message types whose instances should be sent.
+  /** Convenience trait for output channels, and message types whose instances
+    * should be sent.
     */
   trait Send extends Direction
 
-  /** Convenience trait for input channels,
-    *  and message types whose instances should be received.
+  /** Convenience trait for input channels, and message types whose instances
+    * should be received.
     */
   trait Receive extends Direction
 

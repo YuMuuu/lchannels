@@ -25,7 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 /** Internal definitions, e.g. protocols not intended for client usage
   *
-  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk>
+  * @author
+  *   Alceste Scalas <alceste.scalas@imperial.ac.uk>
   */
 package lchannels.examples.chat.protocol.internal
 
@@ -66,5 +67,6 @@ package auth {
   case class GetAuthentication()(val cont: Out[Authentication])
 
   case class Authentication(channel: Out[PubAuthenticate])(
-      val cont: Out[GetAuthentication])
+      val cont: Out[GetAuthentication]
+  )
 }

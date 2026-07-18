@@ -34,9 +34,9 @@ import scala.concurrent.duration._
 
 import com.typesafe.scalalogging.StrictLogging
 
-class Client(name: String, s: In[binary.PlayB], wait: Duration)(
-    implicit timeout: Duration)
-    extends Runnable
+class Client(name: String, s: In[binary.PlayB], wait: Duration)(implicit
+    timeout: Duration
+) extends Runnable
     with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${name}: ${msg}")
   private def logDebug(msg: String) = logger.debug(f"${name}: ${msg}")
@@ -91,10 +91,11 @@ object Actor extends App {
   import binary.actor.{ConnectB => Connect}
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem("GameClientBSys",
-                                config =
-                                  Some(config.getConfig("GameClientBSys")),
-                                defaultExecutionContext = Some(global))
+  implicit val as = ActorSystem(
+    "GameClientBSys",
+    config = Some(config.getConfig("GameClientBSys")),
+    defaultExecutionContext = Some(global)
+  )
 
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
