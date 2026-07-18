@@ -342,11 +342,11 @@ object JavaBlockingQueuesImpl {
   }
 }
 
-/** Akka Typed implementation, optimized with actor reusage. */
-object AkkaTypedImpl {
-  import akka.actor.typed.{ActorRef, Behavior}
-  import akka.actor.typed.scaladsl.Behaviors
-  import akka.actor.typed.scaladsl.adapter._
+/** Pekko Typed implementation, optimized with actor reusage. */
+object PekkoTypedImpl {
+  import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+  import org.apache.pekko.actor.typed.scaladsl.Behaviors
+  import org.apache.pekko.actor.typed.scaladsl.adapter._
 
   sealed abstract class Command
   case class Fwd(msg: String) extends Command
@@ -391,7 +391,7 @@ object AkkaTypedImpl {
       exchanges: Int,
       ringSize: Int,
       maxDuration: Duration
-  )(implicit as: akka.actor.ActorSystem): Long = {
+  )(implicit as: org.apache.pekko.actor.ActorSystem): Long = {
 
     implicit val timeout = Duration.Inf
 
@@ -450,7 +450,7 @@ object Benchmark {
     import scala.collection.mutable.{Buffer => MBuffer}
     case class Bench(title: String, f: () => Long, results: MBuffer[Long])
 
-    implicit val as = akka.actor
+    implicit val as = org.apache.pekko.actor
       .ActorSystem("RingBenchmark", defaultExecutionContext = Some(global))
 
     implicit val timeout = 3600.seconds
@@ -544,8 +544,8 @@ object Benchmark {
         MBuffer()
       )
     )
-    // Bench("Akka Typed",
-    //       () => AkkaTypedImpl.benchmark(msg, loops, ringSize, maxWait),
+    // Bench("Pekko Typed",
+    //       () => PekkoTypedImpl.benchmark(msg, loops, ringSize, maxWait),
     //       MBuffer())
 
     val rnd = new scala.util.Random()

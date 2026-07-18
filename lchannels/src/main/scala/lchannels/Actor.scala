@@ -33,7 +33,7 @@ import scala.util.{Try, Success}
 
 import java.util.concurrent.TimeoutException
 
-import akka.actor.{ActorPath, ActorRef, ActorSystem}
+import org.apache.pekko.actor.{ActorPath, ActorRef, ActorSystem}
 
 /** The medium of actor-based channels. */
 case class Actor()
@@ -48,7 +48,7 @@ private case class Dispatch[T](dest: ActorRef) extends ValueOrDest[T]
 protected[lchannels] object Defaults {
   import java.util.concurrent.atomic.AtomicReference
   import java.util.concurrent.{LinkedTransferQueue => LTQueue}
-  import akka.actor.{ActorSystem, Props}
+  import org.apache.pekko.actor.{ActorSystem, Props}
 
   private val exCtx = new AtomicReference[ExecutionContext]()
   private val actorSys = new AtomicReference[ActorSystem]()
@@ -105,7 +105,7 @@ protected[lchannels] object Defaults {
     }
   }
 
-  class Dispatcher(stayAlive: Boolean) extends akka.actor.Actor {
+  class Dispatcher(stayAlive: Boolean) extends org.apache.pekko.actor.Actor {
     private var recvdValue: Option[Try[Any]] = None
     private var recvdDest: Option[ActorRef] = None
 
@@ -116,7 +116,7 @@ protected[lchannels] object Defaults {
             ref ! v
             if (!stayAlive) {
               actors.remove(self)
-              self ! akka.actor.PoisonPill
+              self ! org.apache.pekko.actor.PoisonPill
             } else {
               // We can be reused
               recvdDest = None
@@ -131,7 +131,7 @@ protected[lchannels] object Defaults {
             dest ! v
             if (!stayAlive) {
               actors.remove(self)
-              self ! akka.actor.PoisonPill
+              self ! org.apache.pekko.actor.PoisonPill
             } else {
               // We can be reused
               recvdValue = None
@@ -144,7 +144,8 @@ protected[lchannels] object Defaults {
     }
   }
 
-  class Retriever(queue: LTQueue[Try[Any]]) extends akka.actor.Actor {
+  class Retriever(queue: LTQueue[Try[Any]])
+      extends org.apache.pekko.actor.Actor {
     override def receive = {
       case v: Try[Any] => {
         queue.put(v)
@@ -187,12 +188,12 @@ protected[lchannels] object Defaults {
   def killActors() = {
     // TODO: should we forbid spawning new actors?  Or just leave it to user?
     actors.foreach { ref =>
-      ref ! akka.actor.PoisonPill
+      ref ! org.apache.pekko.actor.PoisonPill
     }
   }
 }
 
-/** Channels that implement message delivery by automatically spawning Akka
+/** Channels that implement message delivery by automatically spawning Pekko
   * Typed actors.
   */
 object ActorChannel {
@@ -272,7 +273,7 @@ object ActorChannel {
     *   [[ActorIn.path]] and [[ActorOut.path]]
     *
     * @param name
-    *   Name of the Akka actor giving access to the returned actor endpoints.
+    *   Name of the Pekko actor giving access to the returned actor endpoints.
     * @param ec
     *   Execution context for internal `Promise`/`Future` handling
     * @param as
@@ -337,7 +338,7 @@ protected[lchannels] class ActorIn[T](dref: ActorRef)(
     used = true
   }
 
-  /** Return the path of the Akka actor giving access to the channel endpoint
+  /** Return the path of the Pekko actor giving access to the channel endpoint
     *
     * The path allows to (remotely) proxy the channel endpoint, via
     * [[ActorIn $.apply]].
@@ -377,7 +378,7 @@ object ActorIn {
     new ActorIn(dref)(ec, as)
   }
 
-  /** Proxy an [[ActorIn]] instance reachable through the given Akka actor path
+  /** Proxy an [[ActorIn]] instance reachable through the given Pekko actor path
     *
     * @param path
     *   Actor path, matching the value of some [[ActorIn.path]]
@@ -396,7 +397,7 @@ object ActorIn {
     apply(ActorIn.resolvePath(path, timeout))
   }
 
-  /** Proxy an [[ActorIn]] instance reachable through the given Akka actor path
+  /** Proxy an [[ActorIn]] instance reachable through the given Pekko actor path
     * (given as a string).
     *
     * @param path
@@ -413,15 +414,15 @@ object ActorIn {
       as: ActorSystem,
       timeout: FiniteDuration
   ): ActorIn[T] = {
-    apply(akka.actor.ActorPaths.fromString(path))
+    apply(org.apache.pekko.actor.ActorPaths.fromString(path))
   }
 
   private[lchannels] def resolvePath(
       path: ActorPath,
       timeout: FiniteDuration
   )(implicit ec: ExecutionContext, as: ActorSystem): ActorRef = {
-    import akka.actor.{ActorIdentity, Identify}
-    import akka.pattern.ask
+    import org.apache.pekko.actor.{ActorIdentity, Identify}
+    import org.apache.pekko.pattern.ask
     import scala.concurrent.Await
 
     val sel = Await.result(as.actorSelection(path).resolveOne(timeout), timeout)
@@ -451,7 +452,7 @@ protected[lchannels] class ActorOut[-T](val dref: ActorRef)(implicit
     used = true
   }
 
-  /** Return the path of the Akka actor giving access to the channel endpoint
+  /** Return the path of the Pekko actor giving access to the channel endpoint
     *
     * The path allows to (remotely) proxy the channel endpoint, via
     * [[ActorOut$.apply]].
@@ -480,7 +481,8 @@ object ActorOut {
     new ActorOut(dref)(ec, as)
   }
 
-  /** Proxy an [[ActorOut]] instance reachable through the given Akka actor path
+  /** Proxy an [[ActorOut]] instance reachable through the given Pekko actor
+    * path
     *
     * @param path
     *   Actor path, matching the value of some [[ActorIn.path]]
@@ -499,8 +501,8 @@ object ActorOut {
     apply(ActorIn.resolvePath(path, timeout))
   }
 
-  /** Proxy an [[ActorOut]] instance reachable through the given Akka actor path
-    * (given as a string).
+  /** Proxy an [[ActorOut]] instance reachable through the given Pekko actor
+    * path (given as a string).
     *
     * @param path
     *   Actor path, matching the value of some [[ActorIn.path]]
@@ -516,6 +518,6 @@ object ActorOut {
       as: ActorSystem,
       timeout: FiniteDuration
   ): ActorOut[T] = {
-    apply(akka.actor.ActorPaths.fromString(path))
+    apply(org.apache.pekko.actor.ActorPaths.fromString(path))
   }
 }
