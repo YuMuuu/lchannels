@@ -59,12 +59,14 @@ class Alice(s: In[binary.PlayAlice])(implicit timeout: Duration)
       3 -> ("The Art of Computer Programming", "Donald Knuth")
     )
     val title = chooseTitle(choices)
-    logInfo(f"Sending title: '${title}' --- and waiting for quote...")
+    logInfo(s"Sending title: '${title.toString}' --- and waiting for quote...")
     val quote = c2.send(Title(title)).receive
-    logInfo(f"Got quote: ${quote.p}")
+    logInfo(s"Got quote: ${quote.p.toString}")
     val halfQuote = quote.p / 2
 
-    logInfo(f"Telling Bob that we contribute ${halfQuote}; waiting answer...")
+    logInfo(
+      s"Telling Bob that we contribute ${halfQuote.toString}; waiting answer..."
+    )
     quote.cont.send(ShareA(halfQuote)).receive match {
       case OkA(())   => logInfo("Shared purchase accepted")
       case QuitA(()) => logInfo("Shared purchase rejected")
@@ -78,13 +80,13 @@ class Alice(s: In[binary.PlayAlice])(implicit timeout: Duration)
 
     println("Which book should Alice choose?  Please select:")
     for (k <- choices.keys) {
-      val c = choices.get(k).get
-      println(f"    ${k} - ${c._1} (${c._2})")
+      val c = choices(k)
+      println(s"    ${k.toString} - ${c._1.toString} (${c._2.toString})")
     }
     print("> ")
     val choice = scala.io.StdIn.readInt
     if (choice >= 1 && choice <= 3) {
-      choices.get(choice).get._1
+      choices(choice)._1
     } else {
       println("Invalid choice, please retry")
       chooseTitle(choices)
@@ -104,7 +106,7 @@ object Actor extends App {
   import binary.actor.ConnectAlice
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem(
+  implicit val as: ActorSystem = ActorSystem(
     "ThreeBuyerAliceSys",
     config = Some(config.getConfig("ThreeBuyerAliceSys")),
     defaultExecutionContext = Some(global)
@@ -113,10 +115,10 @@ object Actor extends App {
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
 
-  implicit val timeout = 60.seconds
+  implicit val timeout: FiniteDuration = 60.seconds
 
   val sellerPath = "pekko://ThreeBuyerSellerSys@127.0.0.1:31350/user/alice"
-  println(f"[*] Connecting to ${sellerPath}...")
+  println(s"[*] Connecting to ${sellerPath.toString}...")
   val c: Out[ConnectAlice] = ActorOut[ConnectAlice](sellerPath)
   val c2 = c !! ConnectAlice() _
 

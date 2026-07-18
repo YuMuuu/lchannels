@@ -92,7 +92,7 @@ object LChannelsImpl {
 
     @scala.annotation.tailrec
     private def loop(meetings: Int): Unit = {
-      try {
+      val continue = try {
         val r1 = requests.take()
         val r2 = requests.take()
 
@@ -103,10 +103,11 @@ object LChannelsImpl {
           r1 ! Start(cout)
           r2 ! Wait(cin)
         }
+        true
       } catch {
-        case _: InterruptedException => return // quit() was invoked
+        case _: InterruptedException => false // quit() was invoked
       }
-      loop(if (meetings == 0) 0 else meetings - 1)
+      if (continue) loop(if (meetings == 0) 0 else meetings - 1) else ()
     }
   }
 
@@ -187,22 +188,24 @@ object PromiseFutureImpl {
 
     @scala.annotation.tailrec
     private def loop(meetings: Int): Unit = {
-      try {
+      val continue = try {
         val r1 = requests.take()
         val r2 = requests.take()
 
         if (meetings == 0) {
-          r1.success(Closed()); r2.success(Closed())
+          r1.success(Closed())
+          r2.success(Closed())
         } else {
           // Used for interaction btwn chameneos
           val cout = Promise[Greeting]; val cin = cout.future
           r1.success(Start(cout))
           r2.success(Wait(cin))
         }
+        true
       } catch {
-        case _: InterruptedException => return // quit() was invoked
+        case _: InterruptedException => false // quit() was invoked
       }
-      loop(if (meetings == 0) 0 else meetings - 1)
+      if (continue) loop(if (meetings == 0) 0 else meetings - 1) else ()
     }
   }
 
@@ -287,7 +290,7 @@ object ScalaChannelsImpl {
 
     @scala.annotation.tailrec
     private def loop(meetings: Int): Unit = {
-      try {
+      val continue = try {
         val r1 = requests.take()
         val r2 = requests.take()
 
@@ -300,10 +303,11 @@ object ScalaChannelsImpl {
           r1.write(Start(cg, ca))
           r2.write(Wait(cg, ca))
         }
+        true
       } catch {
-        case _: InterruptedException => return // quit() was invoked
+        case _: InterruptedException => false // quit() was invoked
       }
-      loop(if (meetings == 0) 0 else meetings - 1)
+      if (continue) loop(if (meetings == 0) 0 else meetings - 1) else ()
     }
   }
 
@@ -391,7 +395,7 @@ object JavaBlockingQueuesImpl {
 
     @scala.annotation.tailrec
     private def loop(meetings: Int): Unit = {
-      try {
+      val continue = try {
         val r1 = requests.take()
         val r2 = requests.take()
 
@@ -404,10 +408,11 @@ object JavaBlockingQueuesImpl {
           r1.put(Start(cg, ca))
           r2.put(Wait(cg, ca))
         }
+        true
       } catch {
-        case _: InterruptedException => return // quit() was invoked
+        case _: InterruptedException => false // quit() was invoked
       }
-      loop(if (meetings == 0) 0 else meetings - 1)
+      if (continue) loop(if (meetings == 0) 0 else meetings - 1) else ()
     }
   }
 
@@ -462,7 +467,7 @@ object Benchmark {
     implicit val as = org.apache.pekko.actor
       .ActorSystem("RingBenchmark", defaultExecutionContext = Some(global))
 
-    implicit val timeout = 3600.seconds
+    implicit val timeout: FiniteDuration = 3600.seconds
 
     // Each chameneos involved in a meeting sends/receives 3 messages:
     // 1. Response from broker, with channel towards another chameneos
@@ -472,7 +477,7 @@ object Benchmark {
     val meetings = msgCount / (3 * 2)
 
     println(
-      f"*** Chameneos benchmark (${nChameneos} chameneos, ${meetings} meeting(s))"
+      s"*** Chameneos benchmark (${nChameneos.toString} chameneos, ${meetings.toString} meeting(s))"
     )
 
     val benchmarks = List(
@@ -548,7 +553,7 @@ object Benchmark {
     val rnd = new scala.util.Random()
 
     val pfRes = for (i <- 0 until reps) yield {
-      print(f"\r    Repetition: ${i + 1}/${reps}")
+      print(s"\r    Repetition: ${(i + 1).toString}/${reps.toString}")
       // Execute benchmarks in random order at each iteration, for fairness
       for (b <- rnd.shuffle(benchmarks)) {
         System.gc(); System.runFinalization() // Best time to garbage collect
@@ -581,7 +586,7 @@ object Benchmark {
     val broker = new Broker(meetings, rfactory, cfactory)(ec)
 
     val chameneos = for (i <- 0 until nChameneos) yield {
-      new Chameneos(f"Chameneos ${i}", colorMap(i), broker)(ec)
+      new Chameneos(s"Chameneos ${i.toString}", colorMap(i), broker)(ec)
     }
 
     val startTime = System.nanoTime()
@@ -601,7 +606,7 @@ object Benchmark {
     val broker = new Broker(meetings)(ec, d)
 
     val chameneos = for (i <- 0 until nChameneos) yield {
-      new Chameneos(f"Chameneos ${i}", colorMap(i), broker)(ec, d)
+      new Chameneos(s"Chameneos ${i.toString}", colorMap(i), broker)(ec, d)
     }
 
     val startTime = System.nanoTime()
@@ -621,7 +626,7 @@ object Benchmark {
     val broker = new Broker(meetings)(ec, d)
 
     val chameneos = for (i <- 0 until nChameneos) yield {
-      new Chameneos(f"Chameneos ${i}", colorMap(i), broker)(ec, d)
+      new Chameneos(s"Chameneos ${i.toString}", colorMap(i), broker)(ec, d)
     }
 
     val startTime = System.nanoTime()
@@ -644,7 +649,7 @@ object Benchmark {
     val broker = new Broker(meetings, rfactory, gfactory, afactory)(ec, d)
 
     val chameneos = for (i <- 0 until nChameneos) yield {
-      new Chameneos(f"Chameneos ${i}", colorMap(i), broker)(ec, d)
+      new Chameneos(s"Chameneos ${i.toString}", colorMap(i), broker)(ec, d)
     }
 
     val startTime = System.nanoTime()

@@ -89,11 +89,11 @@ object PromiseFutureImpl {
     val ts2 = if (ts == 0) System.nanoTime() else ts
     if (n > 0) {
       val p2 = Promise[Pong]; val f2 = p2.future
-      p success Ping(msg)(p2)
+      p.success(Ping(msg)(p2))
       val pong = Await.result(f2, d)
       pinger(pong.cont, msg, ts2, n - 1)
     } else {
-      p success Stop()
+      p.success(Stop())
       ts2
     }
   }
@@ -103,7 +103,7 @@ object PromiseFutureImpl {
     Await.result(f, d) match {
       case ping @ Ping(msg) => {
         val p2 = Promise[Request]; val f2 = p2.future
-        ping.cont success Pong(msg)(p2)
+        ping.cont.success(Pong(msg)(p2))
         ponger(f2)
       }
       case Stop() => System.nanoTime()
@@ -226,7 +226,7 @@ object PekkoTypedImpl {
           Behaviors.same
         }
         case Stop() => {
-          endTS success System.nanoTime()
+          endTS.success(System.nanoTime())
           Behaviors.stopped
         }
       }
@@ -255,7 +255,7 @@ object PekkoTypedImpl {
           pongerBehOpt(endTS)
         }
         case Stop() => {
-          endTS success System.nanoTime()
+          endTS.success(System.nanoTime())
           Behaviors.stopped
         }
       }
@@ -312,13 +312,15 @@ object Benchmark {
     implicit val as = org.apache.pekko.actor
       .ActorSystem("PingPongBenchmark", defaultExecutionContext = Some(global))
 
-    // implicit val timeout = 5.seconds
-    implicit val timeout = Duration.Inf
+    // implicit val timeout: FiniteDuration = 5.seconds
+    implicit val timeout: Duration = Duration.Inf
 
     val maxWait = 3600.seconds
     val exchanges = msgCount / 2
 
-    println(f"*** Ping-Pong benchmark (${exchanges} message exchanges)")
+    println(
+      s"*** Ping-Pong benchmark (${exchanges.toString} message exchanges)"
+    )
 
     val benchmarks = List(
       Bench(
@@ -395,7 +397,7 @@ object Benchmark {
     val rnd = new scala.util.Random()
 
     val pfRes = for (i <- 0 until reps) yield {
-      print(f"\r    Repetition: ${i + 1}/${reps}")
+      print(s"\r    Repetition: ${(i + 1).toString}/${reps.toString}")
       // Execute benchmarks in random order at each iteration, for fairness
       for (b <- rnd.shuffle(benchmarks)) {
         System.gc(); System.runFinalization() // Best time to garbage collect

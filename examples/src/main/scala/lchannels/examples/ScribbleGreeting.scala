@@ -32,7 +32,7 @@
 package lchannels.examples.scribblegreeting
 
 import scala.concurrent.{blocking, ExecutionContext, Future}
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
 import lchannels._
 
 /////////////////////////////////////////////////////////////////////////////
@@ -136,16 +136,16 @@ object Server {
   import S._
 
   def apply(c: MPGreetOrQuit)(implicit timeout: Duration): Unit = {
-    println(f"[S] Awaiting request from ${c}...")
+    println(s"[S] Awaiting request from ${c.toString}...")
     c.receive match {
       case Greet(whom, cont) => {
-        println(f"[S] Got 'Greet(${whom})', answering Hello")
+        println(s"[S] Got 'Greet(${whom.toString})', answering Hello")
         val c2in = cont.send(Hello(whom))
         println("[S] Performing recursion...")
         apply(c2in)
       }
       case Quit(()) => {
-        println(f"[S] Got Quit(), finishing")
+        println(s"[S] Got Quit(), finishing")
       }
     }
   }
@@ -179,12 +179,12 @@ object Client1 {
     println("[C1] ...done.  Now waiting for answer...")
     repc.receive match {
       case Hello(who, cont) => {
-        println(f"[C1] Received 'Hello(${who})', now quitting...")
+        println(s"[C1] Received 'Hello(${who.toString})', now quitting...")
         cont.send(Quit(()))
         println("[C1] ...done.")
       }
       case Bye(who) => {
-        println(f"[C1] Received 'Bye(${who})', doing nothing")
+        println(s"[C1] Received 'Bye(${who.toString})', doing nothing")
       }
     }
   }
@@ -195,7 +195,7 @@ object Client2 {
   import C._
 
   def apply(c: MPGreetOrQuit)(implicit timeout: Duration): Unit = {
-    println(f"[C2] Sending ${Quit(())}")
+    println(s"[C2] Sending ${Quit(()).toString}")
     c.send(Quit(()))
   }
 }
@@ -209,7 +209,7 @@ object Local extends App {
   import scala.concurrent.ExecutionContext.Implicits.global
   import scala.concurrent.duration._
 
-  implicit val timeout = 10.seconds
+  implicit val timeout: FiniteDuration = 10.seconds
 
   // Create channel for client/server interaction...
   val (in1, out1) = LocalChannel.factory[binary.GreetOrQuit]
@@ -243,7 +243,7 @@ object SocketClient extends App {
   }
   import java.net.Socket
 
-  implicit val timeout = 30.seconds
+  implicit val timeout: FiniteDuration = 30.seconds
 
   class HelloSocketManager(socket: Socket) extends SocketManager(socket) {
     import binary._
@@ -251,7 +251,7 @@ object SocketClient extends App {
     private val outb = new BufferedWriter(new OutputStreamWriter(out))
 
     override def streamer(x: Any) = x match {
-      case Greet(name) => outb.write(f"GREET ${name}\n"); outb.flush()
+      case Greet(name) => outb.write(s"GREET ${name.toString}\n"); outb.flush()
       case Quit(())    => outb.write("QUIT\n"); outb.flush(); close() // End
     }
 
@@ -262,7 +262,9 @@ object SocketClient extends App {
     override def destreamer() = inb.readLine() match {
       case helloR(name) => Hello(name)(SocketOut[GreetOrQuit](this))
       case byeR(name)   => close(); Bye(name) // Session end: close streams
-      case e => { close(); throw new Exception(f"Bad message: '${e}'") }
+      case e            => {
+        close(); throw new Exception(s"Bad message: '${e.toString}'")
+      }
     }
   }
 
@@ -286,7 +288,7 @@ object ActorServer extends App {
   import org.apache.pekko.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem(
+  implicit val as: ActorSystem = ActorSystem(
     "GreetingServerSys",
     config = Some(config.getConfig("GreetingServerSys")),
     defaultExecutionContext = Some(global)
@@ -295,11 +297,11 @@ object ActorServer extends App {
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
 
-  implicit val timeout = Duration.Inf
+  implicit val timeout: Duration = Duration.Inf
 
   // We give a human-readable name ("greeting") to the server actor
   val (in, out) = ActorChannel.factory[binary.GreetOrQuit]("start");
-  println(f"[*] Greeting server listening on: ${out.path}")
+  println(s"[*] Greeting server listening on: ${out.path.toString}")
   Server(S.MPGreetOrQuit(in))
 
   Thread.sleep(2000) // Just to deliver pending actor messages
@@ -316,7 +318,7 @@ object ActorClient extends App {
   import org.apache.pekko.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem(
+  implicit val as: ActorSystem = ActorSystem(
     "GreetingClientSys",
     config = Some(config.getConfig("GreetingClientSys")),
     defaultExecutionContext = Some(global)
@@ -325,10 +327,10 @@ object ActorClient extends App {
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
 
-  implicit val timeout = 10.seconds
+  implicit val timeout: FiniteDuration = 10.seconds
 
   val serverPath = "pekko://GreetingServerSys@127.0.0.1:31337/user/start"
-  println(f"[*] Connecting to ${serverPath}...")
+  println(s"[*] Connecting to ${serverPath.toString}...")
   val c = ActorOut[binary.GreetOrQuit](serverPath)
   Client1(C.MPGreetOrQuit(c))
 

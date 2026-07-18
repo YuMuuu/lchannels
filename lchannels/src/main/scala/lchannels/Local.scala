@@ -89,6 +89,6 @@ class LocalOut[-T](p: Promise[T]) extends medium.Out[Local, T] {
   override def create[U]() = LocalChannel.factory[U]()
 
   override def send(msg: T): Unit = {
-    promise success msg
+    promise.success(msg)
   }
 }

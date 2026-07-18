@@ -58,17 +58,18 @@ package object benchmarks {
     val repetitions = 30 // 30 should be the minimum for one JVM invocation
 
     println(
-      f"Starting benchmarks: ${msgCount} minimum message transmissions, ${repetitions} repetitions"
+      s"Starting benchmarks: ${msgCount.toString} minimum message transmissions, ${repetitions.toString} repetitions"
     )
 
     val benchmarks = List(
       Benchmark(
-        title = f"Ping-pong (${msgCount} message exchanges)",
+        title = s"Ping-pong (${msgCount.toString} message exchanges)",
         benchf = () => pingpong.Benchmark(msgCount * 2, repetitions, "Token"),
         filename = "pingpong.csv"
       ),
       Benchmark(
-        title = f"Ring (${1000} processes, ${msgCount / 1000} loops)",
+        title =
+          s"Ring (${1000.toString} processes, ${(msgCount / 1000).toString} loops)",
         benchf = () =>
           ring.Benchmark(
             ring.Benchmark.Standard(),
@@ -81,7 +82,7 @@ package object benchmarks {
       ),
       Benchmark(
         title =
-          f"Streaming (${16} processes, ${msgCount * 3 / 2} msgs sent/recvd)",
+          s"Streaming (${16.toString} processes, ${(msgCount * 3 / 2).toString} msgs sent/recvd)",
         benchf = () =>
           ring.Benchmark(
             ring.Benchmark.Streaming(),
@@ -94,7 +95,7 @@ package object benchmarks {
       ),
       Benchmark(
         title =
-          f"Chameneos (${256} chameneos, ${(msgCount * 6) / (3 * 2)} meetings)",
+          s"Chameneos (${256.toString} chameneos, ${((msgCount * 6) / (3 * 2)).toString} meetings)",
         benchf = () => chameneos.Benchmark(msgCount * 6, 256, repetitions),
         filename = "chameneos.csv"
       )
@@ -103,7 +104,7 @@ package object benchmarks {
     for (b <- benchmarks) {
       val fname = Paths.get(savePath, b.filename).toString()
       runAndSave(b.title, b.benchf, fname)
-      println(f"    Results saved in: ${fname}")
+      println(s"    Results saved in: ${fname.toString}")
     }
   }
 

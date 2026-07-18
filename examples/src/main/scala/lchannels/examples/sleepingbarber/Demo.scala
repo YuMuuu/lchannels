@@ -32,7 +32,7 @@ object Local extends App {
 
   import scala.concurrent.duration._
 
-  implicit val timeout = 10.seconds
+  implicit val timeout: FiniteDuration = 10.seconds
 
   val customers = List(
     "Alice",

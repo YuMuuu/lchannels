@@ -53,40 +53,47 @@ class Carol(bobConnector: () => In[binary.Contrib])(implicit timeout: Duration)
     logInfo("Started.  Ready to connect with Bob...")
     val bobc = try {
       // Wrap the binary channel with bob in a session object
-      MPContrib(bobConnector())
+      Some(MPContrib(bobConnector()))
     } catch {
       case e: InterruptedException => {
         // We were interrupted without being involved in the interaction
         logInfo("Interrupted.  Terminating.")
-        return
+        None
       }
     }
 
-    logInfo("Bob connected.  Waiting for his contribution request...")
-    val contrib = bobc.receive
-    logInfo(f"Bob is asking for: ${contrib.p}")
+    bobc match {
+      case Some(bobc) => {
+        logInfo("Bob connected.  Waiting for his contribution request...")
+        val contrib = bobc.receive
+        logInfo(s"Bob is asking for: ${contrib.p.toString}")
 
-    logInfo("Receiving delegated session with Seller and Alice")
-    val deleg = contrib.cont.receive
+        logInfo("Receiving delegated session with Seller and Alice")
+        val deleg = contrib.cont.receive
 
-    val budget = 100
-    logInfo(f"My budget is: ${budget}")
-    if (contrib.p > budget) {
-      logInfo(f"Budget is not sufficient: declining")
-      deleg.cont.send(QuitC(()))
-      deleg.p.send(bob.QuitA(())).send(bob.QuitS(()))
-    } else {
-      logInfo(f"Budget OK: accepting, sending address, waiting delivery date")
-      deleg.cont.send(OkC(()))
-      val delivery = deleg.p
-        .send(bob.OkA(()))
-        .send(bob.OkS(()))
-        .send(bob.Address("Carol Jones, 17 Cherry Tree Lane, London, UK"))
-        .receive
-      logInfo(f"Got delivery date: ${delivery.p}")
+        val budget = 100
+        logInfo(s"My budget is: ${budget.toString}")
+        if (contrib.p > budget) {
+          logInfo(s"Budget is not sufficient: declining")
+          deleg.cont.send(QuitC(()))
+          deleg.p.send(bob.QuitA(())).send(bob.QuitS(()))
+        } else {
+          logInfo(
+            s"Budget OK: accepting, sending address, waiting delivery date"
+          )
+          deleg.cont.send(OkC(()))
+          val delivery = deleg.p
+            .send(bob.OkA(()))
+            .send(bob.OkS(()))
+            .send(bob.Address("Carol Jones, 17 Cherry Tree Lane, London, UK"))
+            .receive
+          logInfo(s"Got delivery date: ${delivery.p.toString}")
+        }
+
+        logInfo("Terminating.")
+      }
+      case None => ()
     }
-
-    logInfo("Terminating.")
   }
 }
 
@@ -100,7 +107,7 @@ object Actor extends App {
   import org.apache.pekko.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem(
+  implicit val as: ActorSystem = ActorSystem(
     "ThreeBuyerCarolSys",
     config = Some(config.getConfig("ThreeBuyerCarolSys")),
     defaultExecutionContext = Some(global)
@@ -109,15 +116,15 @@ object Actor extends App {
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
 
-  implicit val timeout = 120.seconds
+  implicit val timeout: FiniteDuration = 120.seconds
 
   // We give a human-readable name to the connection endpoints
   val (bi, bo) = ActorChannel.factory[binary.actor.ConnectCarol]("bob");
-  println(f"[*] Waiting Bob's connections on: ${bo.path}")
+  println(s"[*] Waiting Bob's connections on: ${bo.path.toString}")
 
   def connector = {
     val conn = bi.receive
-    println(f"[*] Bob connected")
+    println(s"[*] Bob connected")
     conn.cont
   }
 

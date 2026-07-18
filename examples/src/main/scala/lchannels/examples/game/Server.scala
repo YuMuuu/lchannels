@@ -43,11 +43,11 @@ class Server(
 )(implicit timeout: Duration)
     extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"Server: ${msg}")
-  private def logDebug(msg: String) = logger.debug(f"Server: ${msg}")
-  private def logInfo(msg: String) = logger.info(f"Server: ${msg}")
-  private def logWarn(msg: String) = logger.warn(f"Server: ${msg}")
-  private def logError(msg: String) = logger.error(f"Server: ${msg}")
+  private def logTrace(msg: String) = logger.trace(s"Server: ${msg.toString}")
+  private def logDebug(msg: String) = logger.debug(s"Server: ${msg.toString}")
+  private def logInfo(msg: String) = logger.info(s"Server: ${msg.toString}")
+  private def logWarn(msg: String) = logger.warn(s"Server: ${msg.toString}")
+  private def logError(msg: String) = logger.error(s"Server: ${msg.toString}")
 
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
@@ -107,7 +107,7 @@ object Actor extends App {
   import org.apache.pekko.actor.ActorSystem
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem(
+  implicit val as: ActorSystem = ActorSystem(
     "GameServerSys",
     config = Some(config.getConfig("GameServerSys")),
     defaultExecutionContext = Some(global)
@@ -116,27 +116,29 @@ object Actor extends App {
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
 
-  implicit val timeout = 120.seconds
+  implicit val timeout: FiniteDuration = 120.seconds
 
   // We give a human-readable name to the connection endpoints
   val (ai, ao) = ActorChannel.factory[binary.actor.ConnectA]("a");
   val (bi, bo) = ActorChannel.factory[binary.actor.ConnectB]("b");
   val (ci, co) = ActorChannel.factory[binary.actor.ConnectC]("c");
-  println(f"[*] Waiting connections on: ${ao.path}, ${bo.path}, ${co.path}")
+  println(
+    s"[*] Waiting connections on: ${ao.path.toString}, ${bo.path.toString}, ${co.path.toString}"
+  )
 
   val ac = ai.receive
-  println(f"[*] Player A connected")
+  println(s"[*] Player A connected")
   val bc = bi.receive
-  println(f"[*] Player B connected")
+  println(s"[*] Player B connected")
   val cc = ci.receive
-  println(f"[*] Player C connected.  Launching server thread...")
+  println(s"[*] Player C connected.  Launching server thread...")
 
   val server = new Server(ac.cont, bc.cont, cc.cont)(30.seconds)
 
   server.join()
-  println(f"[*] Delaying termination to complete game delegation")
+  println(s"[*] Delaying termination to complete game delegation")
   Thread.sleep(10000)
-  println(f"[*] Quitting")
+  println(s"[*] Quitting")
   // Cleanup and hut down the actor system
   ActorChannel.cleanup()
   as.terminate()

@@ -59,7 +59,7 @@ object Demo {
       cfactory: () => (In[PlayC], Out[PlayC])
   ) = {
     import scala.concurrent.duration._
-    implicit val timeout = 10.seconds
+    implicit val timeout: FiniteDuration = 10.seconds
 
     // Client/server channels for players A, B, C
     val (ca, sa) = afactory()

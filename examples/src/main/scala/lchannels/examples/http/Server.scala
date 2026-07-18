@@ -51,18 +51,20 @@ object Server extends App {
   val ssocket = new ServerSocket(port, 0, address)
 
   println(
-    f"[*] HTTP server listening on: http://${address.getHostAddress}:${port}/"
+    s"[*] HTTP server listening on: http://${address.getHostAddress.toString}:${port.toString}/"
   )
-  println(f"[*] Root directory: ${root}")
-  println(f"[*] Press Ctrl+C to terminate")
+  println(s"[*] Root directory: ${root.toString}")
+  println(s"[*] Press Ctrl+C to terminate")
 
-  implicit val timeout = 30.seconds
+  implicit val timeout: FiniteDuration = 30.seconds
   accept(1)
 
   @scala.annotation.tailrec
   def accept(nextWorkerId: Int): Unit = {
     val client = ssocket.accept()
-    println(f"[*] Connection from ${client.getInetAddress}, spawning worker")
+    println(
+      s"[*] Connection from ${client.getInetAddress.toString}, spawning worker"
+    )
     new Worker(nextWorkerId, client, root)
     accept(nextWorkerId + 1)
   }
@@ -95,51 +97,58 @@ class Worker(id: Int, socket: Socket, root: Path)(implicit timeout: Duration)
     // to hide continuation-passing
     val r = MPRequest(c)
 
-    val (rpath, cont) = {
-      try getRequest(r)
+    val request = {
+      try Some(getRequest(r))
       catch {
-        case sktmgr.ConnectionClosed(msg) => { logInfo(msg); return }
+        case sktmgr.ConnectionClosed(msg)             => { logInfo(msg); None }
         case e: java.util.concurrent.TimeoutException => {
-          logInfo(f"Timeout error: ${e.getMessage}")
+          logInfo(s"Timeout error: ${e.getMessage.toString}")
           sktmgr.close()
           logInfo("Terminating.")
-          return
+          None
         }
       }
     }
 
-    val path = root.resolve(pslash.relativize(Paths.get(rpath)))
-    logInfo(f"Resolved request path: ${path}")
-    // TODO: we should reject paths like e.g. ../../../../etc/passwd
+    request match {
+      case Some((rpath, cont)) => {
+        val path = root.resolve(pslash.relativize(Paths.get(rpath)))
+        logInfo(s"Resolved request path: ${path.toString}")
+        // TODO: we should reject paths like e.g. ../../../../etc/passwd
 
-    val cont2 = cont.send(HttpVersion(Http11))
+        val cont2 = cont.send(HttpVersion(Http11))
 
-    val file = path.toFile
+        val file = path.toFile
 
-    if (!file.exists || !file.canRead) {
-      notFound(cont2, rpath)
-    } else {
-      logInfo("Resource found.")
-      val cont3 = cont2
-        .send(Code200("OK"))
-        .send(ServerName(serverName))
-        .send(Date(ZonedDateTime.now))
-      if (file.isFile) {
-        serveFile(cont3, path)
-      } else if (file.isDirectory) {
-        serveDirectory(cont3, rpath, file)
-      } else {
-        throw new RuntimeException(f"BUG: unsupported resource type: ${path}")
+        if (!file.exists || !file.canRead) {
+          notFound(cont2, rpath)
+        } else {
+          logInfo("Resource found.")
+          val cont3 = cont2
+            .send(Code200("OK"))
+            .send(ServerName(serverName))
+            .send(Date(ZonedDateTime.now))
+          if (file.isFile) {
+            serveFile(cont3, path)
+          } else if (file.isDirectory) {
+            serveDirectory(cont3, rpath, file)
+          } else {
+            throw new RuntimeException(
+              s"BUG: unsupported resource type: ${path.toString}"
+            )
+          }
+        }
+
+        logInfo("Terminating.")
       }
+      case None => ()
     }
-
-    logInfo("Terminating.")
   }
 
   private def getRequest(c: MPRequest)(implicit timeout: Duration) = {
     val req = c.receive
     logInfo(
-      f"Method: ${req.p.method}; path: ${req.p.path}; version: ${req.p.version}"
+      s"Method: ${req.p.method.toString}; path: ${req.p.path.toString}; version: ${req.p.version.toString}"
     )
     val cont = choices(req.cont)
     (req.p.path, cont)
@@ -150,51 +159,54 @@ class Worker(id: Int, socket: Socket, root: Path)(implicit timeout: Duration)
       c: MPRequestChoice
   )(implicit timeout: Duration): MPHttpVersion = c.receive match {
     case Accept(p, cont) => {
-      logInfo(f"Client accepts: ${p}")
+      logInfo(s"Client accepts: ${p.toString}")
       choices(cont)
     }
     case AcceptEncodings(p, cont) => {
-      logInfo(f"Client encodings: ${p}")
+      logInfo(s"Client encodings: ${p.toString}")
       choices(cont)
     }
     case AcceptLanguage(p, cont) => {
-      logInfo(f"Client languages: ${p}")
+      logInfo(s"Client languages: ${p.toString}")
       choices(cont)
     }
     case Connection(p, cont) => {
-      logInfo(f"Client connection: ${p}")
+      logInfo(s"Client connection: ${p.toString}")
       choices(cont)
     }
     case DoNotTrack(p, cont) => {
-      logInfo(f"Client Do Not Track flag: ${p}")
+      logInfo(s"Client Do Not Track flag: ${p.toString}")
       choices(cont)
     }
     case Host(p, cont) => {
-      logInfo(f"Client host: ${p}")
+      logInfo(s"Client host: ${p.toString}")
       choices(cont)
     }
     case RequestBody(p, cont) => {
-      logInfo(f"Client request body: ${p}")
+      logInfo(s"Client request body: ${p.toString}")
       cont
     }
     case UpgradeIR(p, cont) => {
-      logInfo(f"Client upgrade insecure requests: ${p}")
+      logInfo(s"Client upgrade insecure requests: ${p.toString}")
       choices(cont)
     }
     case UserAgent(p, cont) => {
-      logInfo(f"Client user agent: ${p}")
+      logInfo(s"Client user agent: ${p.toString}")
       choices(cont)
     }
   }
 
   private def notFound(c: MPCode200OrCode404, res: String) = {
-    logInfo(f"Resource not found: ${res}")
+    logInfo(s"Resource not found: ${res.toString}")
     c.send(Code404("Not Found"))
       .send(ServerName(serverName))
       .send(Date(ZonedDateTime.now))
       .send(
         ResponseBody(
-          Body("text/plain", f"Resource ${res} not found".getBytes("UTF-8"))
+          Body(
+            "text/plain",
+            s"Resource ${res.toString} not found".getBytes("UTF-8")
+          )
         )
       )
   }
@@ -206,13 +218,15 @@ class Worker(id: Int, socket: Socket, root: Path)(implicit timeout: Duration)
       else if (filename.endsWith(".css")) "text/css"
       else "text/plain" // TODO: we assume content is human-readable
     }
-    logInfo(f"Serving file: ${file} (content type: ${contentType})")
+    logInfo(
+      s"Serving file: ${file.toString} (content type: ${contentType.toString})"
+    )
 
     // TODO: for simplicity, we assume all files are UTF-8
     c.send(
       ResponseBody(
         Body(
-          f"${contentType}; charset=utf-8",
+          s"${contentType.toString}; charset=utf-8",
           java.nio.file.Files.readAllBytes(file)
         )
       )
@@ -224,27 +238,29 @@ class Worker(id: Int, socket: Socket, root: Path)(implicit timeout: Duration)
       rpath: String,
       dir: java.io.File
   ) = {
-    logInfo(f"Serving directory: ${dir}")
+    logInfo(s"Serving directory: ${dir.toString}")
 
     val list = dir.listFiles.foldLeft("") { (a, i) =>
-      a + f"""|      <li>
-              |        <a href="${i.getName}${if (i.isFile) "" else "/"}">
-              |          ${i.getName}${if (i.isFile) "" else "/"}
+      a + s"""|      <li>
+              |        <a href="${i.getName.toString}${(if (i.isFile) ""
+                                                        else "/").toString}">
+              |          ${i.getName.toString}${(if (i.isFile) ""
+                                                 else "/").toString}
               |        </a>
               |      </li>\n""".stripMargin
     }
-    val html = f"""|<!DOCTYPE html>
+    val html = s"""|<!DOCTYPE html>
                    |<html>
                    |  <head>
                    |    <meta charset="UTF-8">
-                   |    <title>Contents of ${rpath}</title>
+                   |    <title>Contents of ${rpath.toString}</title>
                    |  </head>
                    |  <body>
-                   |    <h1>Contents of ${rpath}</h1>
+                   |    <h1>Contents of ${rpath.toString}</h1>
                    |    <ul>
-                   |${list}
+                   |${list.toString}
                    |    </ul>
-                   |    <p><em>Page generated by ${serverName}</em></p>
+                   |    <p><em>Page generated by ${serverName.toString}</em></p>
                    |  </body>
                    |</html>\n""".stripMargin
 

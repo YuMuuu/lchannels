@@ -48,11 +48,11 @@ class Shop(
 )(implicit timeout: Duration)
     extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${msg}")
-  private def logInfo(msg: String) = logger.info(f"${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${msg}")
-  private def logError(msg: String) = logger.error(f"${msg}")
+  private def logTrace(msg: String) = logger.trace(s"${msg.toString}")
+  private def logDebug(msg: String) = logger.debug(s"${msg.toString}")
+  private def logInfo(msg: String) = logger.info(s"${msg.toString}")
+  private def logWarn(msg: String) = logger.warn(s"${msg.toString}")
+  private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   var barber: Barber = null // Will be initialized in run()
 
@@ -69,14 +69,14 @@ class Shop(
     val nPeople = peopleWaiting.getAndIncrement()
     if (nPeople >= nSeats) {
       logDebug(
-        f"waiting room is full: ${nPeople + 1} customers, ${nSeats} seats"
+        s"waiting room is full: ${(nPeople + 1).toString} customers, ${nSeats.toString} seats"
       )
       peopleWaiting.getAndDecrement()
       out ! Full()
     } else {
-      logDebug(f"a seat is available (${nPeople} customer(s) sitting)")
+      logDebug(s"a seat is available (${nPeople.toString} customer(s) sitting)")
       val r = out !! Seat() _
-      logDebug(f"seat taken (${nPeople + 1} customer(s) sitting")
+      logDebug(s"seat taken (${(nPeople + 1).toString} customer(s) sitting")
       seats.write(r)
     }
     in

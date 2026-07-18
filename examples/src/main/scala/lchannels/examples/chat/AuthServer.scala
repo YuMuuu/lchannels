@@ -53,11 +53,11 @@ class AuthServer(
 )(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${msg}")
-  private def logInfo(msg: String) = logger.info(f"${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${msg}")
-  private def logError(msg: String) = logger.error(f"${msg}")
+  private def logTrace(msg: String) = logger.trace(s"${msg.toString}")
+  private def logDebug(msg: String) = logger.debug(s"${msg.toString}")
+  private def logInfo(msg: String) = logger.info(s"${msg.toString}")
+  private def logWarn(msg: String) = logger.warn(s"${msg.toString}")
+  private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   // FIFO queue with requests from clients
   private val requests: Channel[Authenticate] = new Channel()
@@ -81,7 +81,7 @@ class AuthServer(
   )(implicit timeout: Duration): Unit = {
     try {
       chan ? { req =>
-        logDebug(f"got ${req}, creating new authentication channels")
+        logDebug(s"got ${req.toString}, creating new authentication channels")
         val (in, out) = factory()
         in.future.onComplete(queueRequest) // Async. add request to FIFO
         logDebug("sending authentication channel")
@@ -96,7 +96,7 @@ class AuthServer(
 
   private def queueRequest(req: Try[Authenticate]): Unit = req match {
     case Success(r) => {
-      logDebug(f"queueing ${r}")
+      logDebug(s"queueing ${r.toString}")
       requests.write(r)
     }
     case Failure(e) => logDebug("got failure, not enqueuing")
@@ -109,11 +109,11 @@ private class Authenticator(
 )(implicit timeout: Duration)
     extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${msg}")
-  private def logInfo(msg: String) = logger.info(f"${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${msg}")
-  private def logError(msg: String) = logger.error(f"${msg}")
+  private def logTrace(msg: String) = logger.trace(s"${msg.toString}")
+  private def logDebug(msg: String) = logger.debug(s"${msg.toString}")
+  private def logInfo(msg: String) = logger.info(s"${msg.toString}")
+  private def logWarn(msg: String) = logger.warn(s"${msg.toString}")
+  private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
@@ -144,14 +144,16 @@ private class Authenticator(
       implicit timeout: Duration
   ): Out[IntCreateSession] = {
     if (accounts.contains((req.username, req.password))) {
-      logDebug(f"login successful for ${req.username}, getting new session")
+      logDebug(
+        s"login successful for ${req.username.toString}, getting new session"
+      )
       (sessionSrv !! IntCreateSession(req.username) _) ? { newSess =>
-        logDebug(f"forwarding new session")
+        logDebug(s"forwarding new session")
         req.cont ! auth.Success(newSess.channel)
         newSess.cont
       }
     } else {
-      logDebug(f"login failed for ${req.username}")
+      logDebug(s"login failed for ${req.username.toString}")
       req.cont ! auth.Failure()
       sessionSrv
     }

@@ -55,11 +55,16 @@ case class Pay(amount: Int)
 class Customer(name: String, shop: barbershop.Shop)(implicit d: Duration)
     extends Runnable
     with StrictLogging {
-  private def logTrace(msg: String) = logger.trace(f"${name}: ${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${name}: ${msg}")
-  private def logInfo(msg: String) = logger.info(f"${name}: ${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${name}: ${msg}")
-  private def logError(msg: String) = logger.error(f"${name}: ${msg}")
+  private def logTrace(msg: String) =
+    logger.trace(s"${name.toString}: ${msg.toString}")
+  private def logDebug(msg: String) =
+    logger.debug(s"${name.toString}: ${msg.toString}")
+  private def logInfo(msg: String) =
+    logger.info(s"${name.toString}: ${msg.toString}")
+  private def logWarn(msg: String) =
+    logger.warn(s"${name.toString}: ${msg.toString}")
+  private def logError(msg: String) =
+    logger.error(s"${name.toString}: ${msg.toString}")
 
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }

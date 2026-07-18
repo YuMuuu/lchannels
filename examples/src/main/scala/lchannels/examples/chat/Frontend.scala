@@ -55,11 +55,11 @@ class Frontend(
     with StrictLogging {
   import scala.concurrent.Channel
 
-  private def logTrace(msg: String) = logger.trace(f"${msg}")
-  private def logDebug(msg: String) = logger.debug(f"${msg}")
-  private def logInfo(msg: String) = logger.info(f"${msg}")
-  private def logWarn(msg: String) = logger.warn(f"${msg}")
-  private def logError(msg: String) = logger.error(f"${msg}")
+  private def logTrace(msg: String) = logger.trace(s"${msg.toString}")
+  private def logDebug(msg: String) = logger.debug(s"${msg.toString}")
+  private def logInfo(msg: String) = logger.info(s"${msg.toString}")
+  private def logWarn(msg: String) = logger.warn(s"${msg.toString}")
+  private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   // FIFO queue with requests from clients
   private val requests: Channel[GetSession] = new Channel()
@@ -78,7 +78,7 @@ class Frontend(
 
   private def queueRequest(req: Try[GetSession]): Unit = req match {
     case Success(r) => {
-      logDebug(f"queueing ${r}")
+      logDebug(s"queueing ${r.toString}")
       requests.write(r)
     }
     case Failure(e) => logDebug("got failure, not enqueuing")
@@ -95,20 +95,23 @@ class Frontend(
       sessionSrv: Out[IntGetSession],
       authSrv: Out[IntGetAuth]
   )(implicit timeout: Duration): Unit = {
-    var req: GetSession = null
-
-    try {
-      req = requests.read
+    val req = try {
+      Some(requests.read)
     } catch {
       case _: InterruptedException => {
         logDebug("interrupted, leaving main loop")
-        return
+        None
       }
     }
 
-    logDebug(f"dequeuing ${req}, now serving")
-    val (sessionSrv2, authSrv2) = serve(req, sessionSrv, authSrv)
-    serverLoop(sessionSrv2, authSrv2)
+    req match {
+      case Some(req) => {
+        logDebug(s"dequeuing ${req.toString}, now serving")
+        val (sessionSrv2, authSrv2) = serve(req, sessionSrv, authSrv)
+        serverLoop(sessionSrv2, authSrv2)
+      }
+      case None => ()
+    }
   }
 
   private def serve(
@@ -116,17 +119,17 @@ class Frontend(
       sessionSrv: Out[IntGetSession],
       authSrv: Out[IntGetAuth]
   )(implicit timeout: Duration): (Out[IntGetSession], Out[IntGetAuth]) = {
-    logDebug(f"trying to retrieve active session")
+    logDebug(s"trying to retrieve active session")
     (sessionSrv !! IntGetSession(req.id) _) ? {
       case ssrv @ IntSuccess(sessc) => {
-        logDebug(f"got active session channel, forwarding to client")
+        logDebug(s"got active session channel, forwarding to client")
         req.cont ! Active(sessc)
         (ssrv.cont, authSrv)
       }
       case ssrv @ IntFailure() => {
-        logDebug(f"no active session, getting authentication channel")
+        logDebug(s"no active session, getting authentication channel")
         (authSrv !! IntGetAuth() _) ? { auth =>
-          logDebug(f"forwarding authentication channel to client")
+          logDebug(s"forwarding authentication channel to client")
           req.cont ! New(auth.channel)
           (ssrv.cont, auth.cont)
         }
