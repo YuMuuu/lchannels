@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Binary protocol classes for the HTTP server.
- *  The classes in this package have been automatically generated from the
- *  Scribble HTTP protocol definition:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Http.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  Scribble HTTP protocol definition:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Http.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.http.protocol.binary
 
 import lchannels._
@@ -41,74 +41,98 @@ case class Request(p: RequestLine)(val cont: In[RequestChoice])
 
 sealed abstract class RequestChoice
 case class Accept(p: String)(val cont: In[RequestChoice]) extends RequestChoice
-case class AcceptEncodings(p: String)(val cont: In[RequestChoice]) extends RequestChoice
-case class AcceptLanguage(p: String)(val cont: In[RequestChoice]) extends RequestChoice
-case class Connection(p: String)(val cont: In[RequestChoice]) extends RequestChoice
-case class DoNotTrack(p: Boolean)(val cont: In[RequestChoice]) extends RequestChoice
+case class AcceptEncodings(p: String)(val cont: In[RequestChoice])
+    extends RequestChoice
+case class AcceptLanguage(p: String)(val cont: In[RequestChoice])
+    extends RequestChoice
+case class Connection(p: String)(val cont: In[RequestChoice])
+    extends RequestChoice
+case class DoNotTrack(p: Boolean)(val cont: In[RequestChoice])
+    extends RequestChoice
 case class Host(p: String)(val cont: In[RequestChoice]) extends RequestChoice
-case class RequestBody(p: Body)(val cont: Out[HttpVersion]) extends RequestChoice
-case class UpgradeIR(p: Boolean)(val cont: In[RequestChoice]) extends RequestChoice
-case class UserAgent(p: String)(val cont: In[RequestChoice]) extends RequestChoice
+case class RequestBody(p: Body)(val cont: Out[HttpVersion])
+    extends RequestChoice
+case class UpgradeIR(p: Boolean)(val cont: In[RequestChoice])
+    extends RequestChoice
+case class UserAgent(p: String)(val cont: In[RequestChoice])
+    extends RequestChoice
 
 case class HttpVersion(p: Version)(val cont: In[Code200OrCode404])
 
 sealed abstract class Code200OrCode404
-case class Code200(p: String)(val cont: In[ResponseChoice]) extends Code200OrCode404
-case class Code404(p: String)(val cont: In[ResponseChoice]) extends Code200OrCode404
+case class Code200(p: String)(val cont: In[ResponseChoice])
+    extends Code200OrCode404
+case class Code404(p: String)(val cont: In[ResponseChoice])
+    extends Code200OrCode404
 
 sealed abstract class ResponseChoice
-case class AcceptRanges(p: String)(val cont: In[ResponseChoice]) extends ResponseChoice
-case class ContentLength(p: Int)(val cont: In[ResponseChoice]) extends ResponseChoice
-case class ContentType(p: String)(val cont: In[ResponseChoice]) extends ResponseChoice
-case class Date(p: ZonedDateTime)(val cont: In[ResponseChoice]) extends ResponseChoice
+case class AcceptRanges(p: String)(val cont: In[ResponseChoice])
+    extends ResponseChoice
+case class ContentLength(p: Int)(val cont: In[ResponseChoice])
+    extends ResponseChoice
+case class ContentType(p: String)(val cont: In[ResponseChoice])
+    extends ResponseChoice
+case class Date(p: ZonedDateTime)(val cont: In[ResponseChoice])
+    extends ResponseChoice
 case class ETag(p: String)(val cont: In[ResponseChoice]) extends ResponseChoice
-case class LastModified(p: ZonedDateTime)(val cont: In[ResponseChoice]) extends ResponseChoice
+case class LastModified(p: ZonedDateTime)(val cont: In[ResponseChoice])
+    extends ResponseChoice
 case class ResponseBody(p: Body) extends ResponseChoice
-case class Server(p: String)(val cont: In[ResponseChoice]) extends ResponseChoice
-case class StrictTS(p: String)(val cont: In[ResponseChoice]) extends ResponseChoice
+case class Server(p: String)(val cont: In[ResponseChoice])
+    extends ResponseChoice
+case class StrictTS(p: String)(val cont: In[ResponseChoice])
+    extends ResponseChoice
 case class Vary(p: String)(val cont: In[ResponseChoice]) extends ResponseChoice
 case class Via(p: String)(val cont: In[ResponseChoice]) extends ResponseChoice
 
 import java.net.Socket
 import java.io.{
-  BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter
+  BufferedReader,
+  BufferedWriter,
+  InputStreamReader,
+  OutputStreamWriter
 }
 import java.time.format.DateTimeFormatter.{RFC_1123_DATE_TIME => RFCDate}
 
 /** Socket manager for the HTTP protocol.
- *  
- *  @param socket the socket managed by the instance
- *  @param relaxHeaders if true, skip unmanaged HTTP headers (otherwise, error)
- *  @param logger logging function, used to report e.g. skipped headers and other info 
- */
+  *
+  *  @param socket the socket managed by the instance
+  *  @param relaxHeaders if true, skip unmanaged HTTP headers (otherwise, error)
+  *  @param logger logging function, used to report e.g. skipped headers and other info
+  */
 class HttpServerSocketManager(socket: Socket,
                               relaxHeaders: Boolean,
-                              logger: (String) => Unit) extends SocketManager(socket) {
+                              logger: (String) => Unit)
+    extends SocketManager(socket) {
   case class ConnectionClosed(msg: String) extends java.io.IOException(msg)
   case class ProtocolError(msg: String) extends java.io.IOException(msg)
-  
+
   private val outb = new BufferedWriter(new OutputStreamWriter(out))
   private var requestStarted = false // Remembers whether GET/POST/... was seen
-  
+
   private val crlf = "\r\n"
-  
+
   override def streamer(x: Any) = x match {
     case HttpVersion(v) => outb.write(f"${v} ")
-    case Code200(msg) => outb.write(f"200 ${msg}${crlf}"); outb.flush()
-    case Code404(msg) => outb.write(f"404 ${msg}${crlf}"); outb.flush()
-    
-    case Date(date) => outb.write(f"Date: ${date.format(RFCDate)}${crlf}"); outb.flush()
+    case Code200(msg)   => outb.write(f"200 ${msg}${crlf}"); outb.flush()
+    case Code404(msg)   => outb.write(f"404 ${msg}${crlf}"); outb.flush()
+
+    case Date(date) =>
+      outb.write(f"Date: ${date.format(RFCDate)}${crlf}"); outb.flush()
     case Server(server) => outb.write(f"Server: ${server}${crlf}"); outb.flush()
     case ResponseBody(body) => {
       outb.write(f"Content-Type: ${body.contentType}${crlf}"); outb.flush()
-      outb.write(f"Content-Length: ${body.contents.size}${crlf}${crlf}"); outb.flush()
+      outb.write(f"Content-Length: ${body.contents.size}${crlf}${crlf}");
+      outb.flush()
       out.write(body.contents) // NOTE: bypass outb, to preserve encoding
       outb.close()
     }
-    
-    case e => { close(); throw new RuntimeException(f"BUG: unsupported message: '${e}'") }
+
+    case e => {
+      close(); throw new RuntimeException(f"BUG: unsupported message: '${e}'")
+    }
   }
-  
+
   private val inb = new BufferedReader(new InputStreamReader(in))
   private val requestR = """(\S+) (\S+) (\S+)""".r // Start of HTTP request
   private val acceptR = """Accept: (.+)""".r // Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
@@ -119,14 +143,14 @@ class HttpServerSocketManager(socket: Socket,
   private val hostR = """Host: (\S+)""".r // Host: www.doc.ic.ac.uk
   private val upgradeirR = """Upgrade-Insecure-Requests: (\d)""".r // Upgrade-Insecure-Requests: 1
   private val useragentR = """User-Agent: (.+)""".r // User-Agent: Mozilla/5.0 (Windows NT 6.3; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0
-  
+
   private val genericHeaderR = """(\S+): (.+)""".r // Generic regex for unsupported headers
-  
+
   override def destreamer(): Any = {
     import java.net.URI
-    
+
     val line = inb.readLine()
-    
+
     if (!requestStarted) {
       line match {
         case requestR(method, uri, version) => {
@@ -136,7 +160,7 @@ class HttpServerSocketManager(socket: Socket,
           val v = Version(version)
           return Request(RequestLine(m, path, v))(SocketIn[RequestChoice](this))
         }
-        
+
         case null => {
           close()
           throw ConnectionClosed("Connection closed by client")
@@ -147,31 +171,36 @@ class HttpServerSocketManager(socket: Socket,
         }
       }
     }
-    
+
     // If we are here, then requestStarted was false
     line match {
       case acceptR(fmts) => Accept(fmts)(SocketIn[RequestChoice](this))
-      case acceptEncR(encs) => AcceptEncodings(encs)(SocketIn[RequestChoice](this))
-      case acceptLangR(langs) => AcceptLanguage(langs)(SocketIn[RequestChoice](this))
+      case acceptEncR(encs) =>
+        AcceptEncodings(encs)(SocketIn[RequestChoice](this))
+      case acceptLangR(langs) =>
+        AcceptLanguage(langs)(SocketIn[RequestChoice](this))
       case connectionR(conn) => Connection(conn)(SocketIn[RequestChoice](this))
-      case dntR(dnt) => DoNotTrack(dnt == 1)(SocketIn[RequestChoice](this))
-      case hostR(host) => Host(host)(SocketIn[RequestChoice](this))
-      case upgradeirR(up) => UpgradeIR(up == 1)(SocketIn[RequestChoice](this))
-      case useragentR(ua) => UserAgent(ua)(SocketIn[RequestChoice](this))
-      
+      case dntR(dnt)         => DoNotTrack(dnt == 1)(SocketIn[RequestChoice](this))
+      case hostR(host)       => Host(host)(SocketIn[RequestChoice](this))
+      case upgradeirR(up)    => UpgradeIR(up == 1)(SocketIn[RequestChoice](this))
+      case useragentR(ua)    => UserAgent(ua)(SocketIn[RequestChoice](this))
+
       case genericHeaderR(h, _) if relaxHeaders => {
         // Ignore this header, and keep looking for something supported
         logger(f"Skipping unsupported HTTP header '${h}'")
         destreamer()
       }
-      
+
       case "" => {
         // The request body should now follow.
         // TODO: in this HTTP fragment, we assume GET with Content-Length=0
-        RequestBody(Body("text/html", Array[Byte]()))(SocketOut[HttpVersion](this))
+        RequestBody(Body("text/html", Array[Byte]()))(
+          SocketOut[HttpVersion](this))
       }
-      
-      case e => { close(); throw new ProtocolError(f"Unexpected message: '${e}'") }
+
+      case e => {
+        close(); throw new ProtocolError(f"Unexpected message: '${e}'")
+      }
     }
   }
 }

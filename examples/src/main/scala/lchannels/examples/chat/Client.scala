@@ -33,41 +33,44 @@ import lchannels.examples.chat.protocol.public._
 
 import com.typesafe.scalalogging.StrictLogging
 
-class Client(frontend: Out[GetSession], val spec: ClientSpec)
-            (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
+class Client(frontend: Out[GetSession], val spec: ClientSpec)(
+    implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   import scala.concurrent.duration._
-  
+
   private def logTrace(msg: String) = logger.trace(f"${spec.username}: ${msg}")
   private def logDebug(msg: String) = logger.debug(f"${spec.username}: ${msg}")
   private def logInfo(msg: String) = logger.info(f"${spec.username}: ${msg}")
   private def logWarn(msg: String) = logger.warn(f"${spec.username}: ${msg}")
   private def logError(msg: String) = logger.error(f"${spec.username}: ${msg}")
-  
+
   private val roomName = "TestRoom"
-  
+
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
-  
+
   override def run() = {
     logInfo("started, getting session")
-    (frontend !! GetSession(0)_) ? { // Session 0 should not exist
-      case Active(srv) => loggedIn(srv)
+    (frontend !! GetSession(0) _) ? { // Session 0 should not exist
+      case Active(srv)  => loggedIn(srv)
       case New(authSrv) => authenticate(authSrv)
     }
     logInfo("terminating")
   }
-  
+
   private def loggedIn(srv: Out[session.Command]): Unit = {
-    (srv !! session. Join(roomName)_) ? { case session.ChatRoom(msgc, ctl) =>
-      logInfo(f"joined chatroom ${roomName}")
-      chat(msgc, ctl, spec.msgCount)
+    (srv !! session.Join(roomName) _) ? {
+      case session.ChatRoom(msgc, ctl) =>
+        logInfo(f"joined chatroom ${roomName}")
+        chat(msgc, ctl, spec.msgCount)
     }
   }
-  
+
   private def chat(msgc: In[room.Messages],
-                   ctlc: Out[roomctl.Control], msgCount: Int): Unit = {
+                   ctlc: Out[roomctl.Control],
+                   msgCount: Int): Unit = {
     if (msgCount <= 0) {
       logInfo(f"leaving chatroom ${roomName}")
       ctlc ! roomctl.Quit()
@@ -75,7 +78,7 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)
     } else {
       val text = f"This is message no. ${(spec.msgCount - msgCount) + 1}"
       logInfo(f"sending message: '${text}'")
-      val ctlc2 = ctlc !! roomctl.SendMessage(text)_
+      val ctlc2 = ctlc !! roomctl.SendMessage(text) _
       receiveMessages(msgc, spec.msgDelay) match {
         case Some(msgc2) => chat(msgc2, ctlc2, msgCount - 1)
         case None => {
@@ -85,11 +88,12 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)
       }
     }
   }
-  
+
   private def receiveMessages(msgc: In[room.Messages],
                               maxWait: Duration): Option[In[room.Messages]] = {
     logDebug({
-      val wait = if (maxWait.isFinite) f"${maxWait.toMillis/1000.0}" else "Inf"
+      val wait =
+        if (maxWait.isFinite) f"${maxWait.toMillis / 1000.0}" else "Inf"
       f"waiting for messages (maxWait: ${wait} secs)"
     })
     val tStart = System.nanoTime()
@@ -101,7 +105,7 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)
         }
         case m @ room.Ping(msg) => {
           logInfo(f"received Ping(${msg})")
-          val msgc2 = m.cont !! room.Pong(msg)_
+          val msgc2 = m.cont !! room.Pong(msg) _
           val elapsed = System.nanoTime - tStart
           receiveMessages(msgc2, maxWait - Duration.fromNanos(elapsed))
         }
@@ -114,14 +118,14 @@ class Client(frontend: Out[GetSession], val spec: ClientSpec)
     } catch {
       case e: scala.concurrent.TimeoutException => {
         logDebug("stopped waiting for messages")
-        Some(msgc) // We keep receiving on the same channel 
+        Some(msgc) // We keep receiving on the same channel
       }
     }
   }
-  
+
   private def authenticate(srv: Out[auth.Authenticate]): Unit = {
     logInfo("authenticating")
-    (srv !! auth.Authenticate(spec.username, spec.password)_) ? {
+    (srv !! auth.Authenticate(spec.username, spec.password) _) ? {
       case auth.Failure() => logError("authentication failed")
       case auth.Success(srv) => {
         logInfo("authentication successful")

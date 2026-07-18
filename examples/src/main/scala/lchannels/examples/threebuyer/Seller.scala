@@ -36,11 +36,11 @@ import scala.concurrent.duration._
 import java.time.ZonedDateTime
 
 import com.typesafe.scalalogging.StrictLogging
-  
-class Seller(ca: Out[binary.PlayAlice],
-             cb: Out[binary.PlayBob])
-            (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
+
+class Seller(ca: Out[binary.PlayAlice], cb: Out[binary.PlayBob])(
+    implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(msg)
   private def logDebug(msg: String) = logger.debug(msg)
   private def logInfo(msg: String) = logger.info(msg)
@@ -50,7 +50,7 @@ class Seller(ca: Out[binary.PlayAlice],
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
-  
+
   override def run() = {
     logInfo("Starting.  Creating binary channels for multiparty session...")
 
@@ -77,8 +77,7 @@ class Seller(ca: Out[binary.PlayAlice],
     val (abi, abo) = ca.create[binary.ShareA] // Used between Alice and Bob
     val (sai, sao) = ca.create[binary.Title] // Used between Seller and Alice
     val (sbi, sbo) = cb.create[binary.QuoteB] // Used between Seller and Bob
-    
-    
+
     // We now instantiate multiparty session objects (i.e., n-uples of
     // binary linear channels), and send them to our clients via channels
     // ca, cb, cc.
@@ -90,22 +89,22 @@ class Seller(ca: Out[binary.PlayAlice],
     logInfo("...and sending multiparty objects to clients.")
     ca ! binary.PlayAlice(alice.MPTitle(abo, sao))
     cb ! binary.PlayBob(bob.MPQuoteB(abi, sbi))
-    
+
     // Wrap binary channels into a multiparty session object
     val s = MPTitle(sai, sbo)
     sell(s)
-    
+
     logInfo("Terminating.")
   }
-  
+
   private def sell(s: MPTitle) = {
     logInfo("Waiting for order...")
     val order = s.receive
     logInfo(f"Received order: '${order.p}'")
     val quote = order.p match {
       case "Alice in Wonderland" => 10
-      case "War and Peace" => 100
-      case _ => 1000 // We can find any book, but it will be expensive...
+      case "War and Peace"       => 100
+      case _                     => 1000 // We can find any book, but it will be expensive...
     }
     logInfo(f"Sending quote: ${quote} --- then waiting for answer...")
     order.cont.send(QuoteA(quote)).send(QuoteB(quote)).receive match {
@@ -113,7 +112,7 @@ class Seller(ca: Out[binary.PlayAlice],
         logInfo("Quote accepted, waiting for address")
         val address = cont.receive
         logInfo(f"Got delivery address: '${address.p}'")
-        
+
         val deliveryDate = ZonedDateTime.now().plusDays(7)
         logInfo(f"Sending delivery date (7 days from now): ${deliveryDate}")
         address.cont.send(Deliver(deliveryDate))
@@ -128,34 +127,35 @@ class Seller(ca: Out[binary.PlayAlice],
 object Actor extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
   import akka.actor.ActorSystem
-  
+
   val config = ConfigFactory.load() // Loads resources/application.conf
   implicit val as = ActorSystem("ThreeBuyerSellerSys",
-                          config = Some(config.getConfig("ThreeBuyerSellerSys")),
-                          defaultExecutionContext = Some(global))
-  
+                                config =
+                                  Some(config.getConfig("ThreeBuyerSellerSys")),
+                                defaultExecutionContext = Some(global))
+
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
-  
+
   implicit val timeout = 120.seconds
-  
+
   // We give a human-readable name to the connection endpoints
   val (ai, ao) = ActorChannel.factory[binary.actor.ConnectAlice]("alice");
   val (bi, bo) = ActorChannel.factory[binary.actor.ConnectBob]("bob");
   println(f"[*] Waiting connections on: ${ao.path}, ${bo.path}")
-  
+
   val ac = ai.receive
   println(f"[*] Alice connected")
   val bc = bi.receive
   println(f"[*] Bob connected")
-  
+
   val seller = new Seller(ac.cont, bc.cont)(30.seconds)
-  
+
   seller.join()
   Thread.sleep(2000) // Just to deliver pending actor messages
   println(f"[*] Quitting")

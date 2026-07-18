@@ -35,13 +35,13 @@ import lchannels.examples.game.protocol.c
 import scala.concurrent.duration._
 
 import com.typesafe.scalalogging.StrictLogging
-  
+
 class Server(ca: Out[binary.PlayA],
              cb: Out[binary.PlayB],
-             cc: Out[binary.PlayC])
-            (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
-    private def logTrace(msg: String) = logger.trace(f"Server: ${msg}")
+             cc: Out[binary.PlayC])(implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
+  private def logTrace(msg: String) = logger.trace(f"Server: ${msg}")
   private def logDebug(msg: String) = logger.debug(f"Server: ${msg}")
   private def logInfo(msg: String) = logger.info(f"Server: ${msg}")
   private def logWarn(msg: String) = logger.warn(f"Server: ${msg}")
@@ -50,7 +50,7 @@ class Server(ca: Out[binary.PlayA],
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
-  
+
   override def run() = {
     logInfo("Starting.  Creating binary channels for multiparty game...")
 
@@ -77,7 +77,7 @@ class Server(ca: Out[binary.PlayA],
     val (abi, abo) = ca.create[binary.InfoAB]
     val (bci, bco) = cb.create[binary.InfoBC]
     val (cai, cao) = cc.create[binary.InfoCA]
-    
+
     // We now instantiate multiparty session objects (i.e., n-uples of
     // binary linear channels), and send them to our clients via channels
     // ca, cb, cc.
@@ -90,7 +90,7 @@ class Server(ca: Out[binary.PlayA],
     ca ! binary.PlayA(a.MPInfoCA(abo, cai))
     cb ! binary.PlayB(b.MPInfoBC(abi, bco))
     cc ! binary.PlayC(c.MPInfoBC(cao, bci))
-    
+
     logInfo("Quitting.")
   }
 }
@@ -98,37 +98,38 @@ class Server(ca: Out[binary.PlayA],
 object Actor extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
   import akka.actor.ActorSystem
-  
+
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as = ActorSystem("GameServerSys",
-                          config = Some(config.getConfig("GameServerSys")),
-                          defaultExecutionContext = Some(global))
-  
+  implicit val as = ActorSystem(
+    "GameServerSys",
+    config = Some(config.getConfig("GameServerSys")),
+    defaultExecutionContext = Some(global))
+
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
-  
+
   implicit val timeout = 120.seconds
-  
+
   // We give a human-readable name to the connection endpoints
   val (ai, ao) = ActorChannel.factory[binary.actor.ConnectA]("a");
   val (bi, bo) = ActorChannel.factory[binary.actor.ConnectB]("b");
   val (ci, co) = ActorChannel.factory[binary.actor.ConnectC]("c");
   println(f"[*] Waiting connections on: ${ao.path}, ${bo.path}, ${co.path}")
-  
+
   val ac = ai.receive
   println(f"[*] Player A connected")
   val bc = bi.receive
   println(f"[*] Player B connected")
   val cc = ci.receive
   println(f"[*] Player C connected.  Launching server thread...")
-  
+
   val server = new Server(ac.cont, bc.cont, cc.cont)(30.seconds)
-  
+
   server.join()
   println(f"[*] Delaying termination to complete game delegation")
   Thread.sleep(10000)

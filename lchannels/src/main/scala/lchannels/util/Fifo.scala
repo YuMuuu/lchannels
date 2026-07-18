@@ -39,58 +39,60 @@ private case class Datum[T](value: T)(val cont: In[Datum[T]])
 
 /** Interface for FIFO queues. */
 trait Fifo[T] {
+
   /** Return and remove the value at the head of the queue.
-   * 
-   * This method blocks if the queue is empty,
-   * until a value can be retrieved, or the given timeout expires.
-   * 
-   * @param timeout Maximum wait time when the queue is empty.
-   * 
-   * @throws java.util.concurrent.TimeoutException if `timeout` expires
-   * @throws java.util.concurrent.InterruptedException if thread is interrupted
-   */
+    *
+    * This method blocks if the queue is empty,
+    * until a value can be retrieved, or the given timeout expires.
+    *
+    * @param timeout Maximum wait time when the queue is empty.
+    *
+    * @throws java.util.concurrent.TimeoutException if `timeout` expires
+    * @throws java.util.concurrent.InterruptedException if thread is interrupted
+    */
   def read(implicit timeout: Duration): T
-  
+
   /** Append a value to the queue.
-   * 
-   * @param value Value to be appended.
-   */
+    *
+    * @param value Value to be appended.
+    */
   def write(value: T): Unit
 }
 
 /** Simple implementation of FIFO queue.
- *  
- *  @param factory Used internally to create [[In]]/[[Out]] instances.
- */
+  *
+  *  @param factory Used internally to create [[In]]/[[Out]] instances.
+  */
 protected class FifoImpl[T](factory: () => (In[Datum[T]], Out[Datum[T]]))
     extends Fifo[T] {
   private[this] var (in, out) = factory()
-  
-  private[this] val inLock = new Object()  // Guards "in" above
+
+  private[this] val inLock = new Object() // Guards "in" above
   private[this] val outLock = new Object() // Guards "out" above
-  
+
   def read(implicit timeout: Duration): T = inLock.synchronized {
     val res = in.receive
     in = res.cont
     res.value
   }
-  
+
   def write(value: T): Unit = outLock.synchronized {
-    out = out !! Datum[T](value)_
+    out = out !! Datum[T](value) _
   }
 }
 
 /** Simple FIFO queue. */
 object Fifo {
+
   /** Return an empty FIFO, internally based on [[LocalChannel]]s. */
   def apply[T](): Fifo[T] = {
     new FifoImpl[T](() => LocalChannel.factory[Datum[T]]())
   }
-  
+
   /** Return an empty FIFO, internally based on [[QueueChannel]]s
-   * 
-   * @param ec Execution context for [[QueueChannel]] creation.
-   */
+    *
+    * @param ec Execution context for [[QueueChannel]] creation.
+    */
   def apply[T](ec: ExecutionContext): Fifo[T] = {
     new FifoImpl[T](() => QueueChannel.factory[Datum[T]]()(ec))
   }

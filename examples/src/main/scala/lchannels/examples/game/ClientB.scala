@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 /** @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.game.b
-  
+
 import lchannels._
 import lchannels.examples.game.protocol.binary
 import lchannels.examples.game.protocol.b._
@@ -33,10 +33,11 @@ import lchannels.examples.game.protocol.b._
 import scala.concurrent.duration._
 
 import com.typesafe.scalalogging.StrictLogging
-  
-class Client(name: String, s: In[binary.PlayB], wait: Duration)
-            (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
+
+class Client(name: String, s: In[binary.PlayB], wait: Duration)(
+    implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${name}: ${msg}")
   private def logDebug(msg: String) = logger.debug(f"${name}: ${msg}")
   private def logInfo(msg: String) = logger.info(f"${name}: ${msg}")
@@ -46,10 +47,10 @@ class Client(name: String, s: In[binary.PlayB], wait: Duration)
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
-  
+
   override def run() = {
     val c = MPPlayB(s) // Wrap the channel in a multiparty session obj
-    
+
     logInfo("Started.  Waiting for multiparty session...")
     val game = c.receive.p
     logInfo("...done.  Sending name to C, and waiting for A's info...")
@@ -57,7 +58,7 @@ class Client(name: String, s: In[binary.PlayB], wait: Duration)
     logInfo(f"...got InfoCA(${info.p}).  Starting game loop.")
     loop(info.cont)
   }
-  
+
   @scala.annotation.tailrec
   private def loop(g: MPMov1ABOrMov2AB): Unit = {
     logInfo(f"Delay: ${wait}")
@@ -73,7 +74,7 @@ class Client(name: String, s: In[binary.PlayB], wait: Duration)
         logInfo(f"Got Mov2AB(${p}), sending Mov2BC(${p}) and looping")
         val g2 = cont.send(Mov2BC(p))
         loop(g2)
-      } 
+      }
     }
   }
 }
@@ -81,31 +82,32 @@ class Client(name: String, s: In[binary.PlayB], wait: Duration)
 object Actor extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
   import akka.actor.ActorSystem
-  
+
   import binary.actor.{ConnectB => Connect}
-  
+
   val config = ConfigFactory.load() // Loads resources/application.conf
   implicit val as = ActorSystem("GameClientBSys",
-                          config = Some(config.getConfig("GameClientBSys")),
-                          defaultExecutionContext = Some(global))
-  
+                                config =
+                                  Some(config.getConfig("GameClientBSys")),
+                                defaultExecutionContext = Some(global))
+
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
-  
+
   implicit val timeout = 60.seconds
-  
-  val serverPath =  "akka.tcp://GameServerSys@127.0.0.1:31340/user/b"
+
+  val serverPath = "akka.tcp://GameServerSys@127.0.0.1:31340/user/b"
   println(f"[*] Connecting to ${serverPath}...")
   val c: Out[Connect] = ActorOut[Connect](serverPath)
-  val c2 = c !! Connect()_
-  
+  val c2 = c !! Connect() _
+
   val client = new Client("Bob", c2, 2.seconds)(30.seconds)
-  
+
   client.join()
   // Cleanup and hut down the actor system
   ActorChannel.cleanup()

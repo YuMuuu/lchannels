@@ -48,8 +48,7 @@ trait SeqSendReceive[M, T1 <: Message[M, Receive]]
   self: Message[M, Send] =>
   override val cont: Out[M, T1]
 }
-trait SeqSendEnd[M]
-    extends MessageSeq[M, Send, End[M]] {
+trait SeqSendEnd[M] extends MessageSeq[M, Send, End[M]] {
   self: Message[M, Send] =>
   override val cont = End[M]()
 }
@@ -64,8 +63,7 @@ trait SeqReceiveReceive[M, T1 <: Message[M, Receive]]
   override val cont: In[M, T1]
 }
 
-trait SeqReceiveEnd[M]
-    extends MessageSeq[M, Receive, End[M]] {
+trait SeqReceiveEnd[M] extends MessageSeq[M, Receive, End[M]] {
   self: Message[M, Receive] =>
   override val cont = End[M]()
 }
@@ -74,35 +72,31 @@ object Protocol {
   import lchannels.{Local, LocalChannel}
   import scala.concurrent.{blocking, ExecutionContext, Future}
   import scala.concurrent.duration.Duration
-  
+
   def serve[Msg <: Message[Local, Send]](
-        handler: (In[Local, Msg], Duration) => Unit
-      )(implicit ctx: ExecutionContext,
-                 timeout: Duration): Out[Local, Msg] = {
+      handler: (In[Local, Msg], Duration) => Unit
+  )(implicit ctx: ExecutionContext, timeout: Duration): Out[Local, Msg] = {
     serve(() => LocalChannel.factory[Msg](), handler)
   }
-  
+
   def serve[M, Msg <: Message[M, Send]](
-        factory: () => (In[M, Msg], Out[M, Msg]),
-        handler: (In[M, Msg], Duration) => Unit
-      )(implicit ctx: ExecutionContext,
-                 timeout: Duration): Out[M, Msg] = {
+      factory: () => (In[M, Msg], Out[M, Msg]),
+      handler: (In[M, Msg], Duration) => Unit
+  )(implicit ctx: ExecutionContext, timeout: Duration): Out[M, Msg] = {
     val (cin, cout) = factory()
     Future { blocking { handler(cin, timeout) } }
     cout
   }
-  
+
   def serve[Msg <: Message[Local, Receive]](
-        handler: (Out[Local, Msg], Duration) => Unit
-      )(implicit ctx: ExecutionContext,
-                 timeout: Duration): In[Local, Msg] = {
+      handler: (Out[Local, Msg], Duration) => Unit
+  )(implicit ctx: ExecutionContext, timeout: Duration): In[Local, Msg] = {
     serve(() => LocalChannel.factory[Msg](), handler)
   }
   def serve[M, Msg <: Message[M, Receive]](
-        factory: () => (In[M, Msg], Out[M, Msg]),
-        handler: (Out[M, Msg], Duration) => Unit
-      )(implicit ctx: ExecutionContext,
-                 timeout: Duration): In[M, Msg] = {
+      factory: () => (In[M, Msg], Out[M, Msg]),
+      handler: (Out[M, Msg], Duration) => Unit
+  )(implicit ctx: ExecutionContext, timeout: Duration): In[M, Msg] = {
     val (cin, cout) = factory()
     Future { blocking { handler(cout, timeout) } }
     cin

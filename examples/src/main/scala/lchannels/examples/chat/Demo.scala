@@ -28,32 +28,34 @@ package lchannels.examples.chat.demo
 
 import scala.concurrent.duration.Duration
 
-protected case class ClientSpec(username: String, password: String,
-                                msgDelay: Duration, msgCount: Int)
+protected case class ClientSpec(username: String,
+                                password: String,
+                                msgDelay: Duration,
+                                msgCount: Int)
 
 object Local extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration._
   import lchannels.examples.chat.server.ChatServer
   import scala.concurrent.ExecutionContext.Implicits.global
-  
+
   val timeout = 30.seconds
-  
+
   val clientSpecs = List(
     ClientSpec("alice", "password", 1.seconds, 10),
     ClientSpec("bob", "password", 2.seconds, 8),
     ClientSpec("carol", "password", 3.seconds, 6)
   )
-  
+
   val frontend = ChatServer()(global, timeout)
-  
+
   println("***Spawning clients...")
   val clients = for (cs <- clientSpecs) yield {
     new Client(frontend.connect(), cs)(timeout)
   }
-  
+
   println("*** Waiting for clients to terminate...")
   for (c <- clients) {
     c.join();

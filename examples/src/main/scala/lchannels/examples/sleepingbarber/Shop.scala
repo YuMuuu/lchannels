@@ -35,77 +35,84 @@ import lchannels._
 import lchannels.util.Fifo
 
 import lchannels.examples.sleepingbarber.customer.{
-  WaitingRoom, Full, Seat, Ready
+  WaitingRoom,
+  Full,
+  Seat,
+  Ready
 }
 
 class Shop(nSeats: Int,
            bfactory: () => (In[Available], Out[Available]),
-           cfactory: () => (In[WaitingRoom], Out[WaitingRoom]))
-          (implicit timeout: Duration) extends Runnable with StrictLogging {
+           cfactory: () => (In[WaitingRoom], Out[WaitingRoom]))(
+    implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
   private def logDebug(msg: String) = logger.debug(f"${msg}")
   private def logInfo(msg: String) = logger.info(f"${msg}")
   private def logWarn(msg: String) = logger.warn(f"${msg}")
   private def logError(msg: String) = logger.error(f"${msg}")
-  
+
   var barber: Barber = null // Will be initialized in run()
-  
+
   private val seats: Fifo[Out[Ready]] = Fifo()
   private val peopleWaiting = new AtomicInteger(0) // Keep in synch. with seats
-  
+
   // Own thread
-  private val thread = { val t = new Thread(this); t.start(); t}
+  private val thread = { val t = new Thread(this); t.start(); t }
   def quit() = thread.interrupt()
-  
+
   def enter(): In[WaitingRoom] = {
     logDebug("a customer is entering")
     val (in, out) = cfactory()
     val nPeople = peopleWaiting.getAndIncrement()
     if (nPeople >= nSeats) {
-      logDebug(f"waiting room is full: ${nPeople+1} customers, ${nSeats} seats")
+      logDebug(
+        f"waiting room is full: ${nPeople + 1} customers, ${nSeats} seats")
       peopleWaiting.getAndDecrement()
       out ! Full()
     } else {
       logDebug(f"a seat is available (${nPeople} customer(s) sitting)")
-      val r = out !! Seat()_
-      logDebug(f"seat taken (${nPeople+1} customer(s) sitting")
+      val r = out !! Seat() _
+      logDebug(f"seat taken (${nPeople + 1} customer(s) sitting")
       seats.write(r)
     }
     in
   }
-  
+
   override def run(): Unit = {
     logDebug("started")
     assert(nSeats > 0)
-    
+
     logDebug("starting barber")
     val (barberIn, barberOut) = bfactory()
     barber = new Barber(barberOut)
-    
+
     logDebug("entering main loop")
-    
+
     loop(barberIn)
-    
+
     logDebug("terminating barber")
     barber.quit()
-    
+
     logInfo("quitting")
   }
-  
-  private def loop(barber: In[Available]): Unit = try {
-    logDebug("waiting for barber availability...")
-    barber ? { avail =>
-      logDebug("waiting for customer")
-      val cust = seats.read
-      peopleWaiting.getAndDecrement()
-      logDebug("notifying the customer that the barber is ready")
-      val custd = cust !! Ready()_
-      logDebug("forwarding customer to barber, and looping")
-      loop(avail.cont !! Serve(custd)_)
+
+  private def loop(barber: In[Available]): Unit =
+    try {
+      logDebug("waiting for barber availability...")
+      barber ? { avail =>
+        logDebug("waiting for customer")
+        val cust = seats.read
+        peopleWaiting.getAndDecrement()
+        logDebug("notifying the customer that the barber is ready")
+        val custd = cust !! Ready() _
+        logDebug("forwarding customer to barber, and looping")
+        loop(avail.cont !! Serve(custd) _)
+      }
+    } catch {
+      case _: InterruptedException => logInfo("interrupted, leaving main loop")
     }
-  } catch {
-    case _: InterruptedException => logInfo("interrupted, leaving main loop")
-  }
 }
 
 object Shop {

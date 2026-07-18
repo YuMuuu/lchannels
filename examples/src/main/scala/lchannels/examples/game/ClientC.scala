@@ -33,10 +33,11 @@ import lchannels.examples.game.protocol.c._
 import scala.concurrent.duration._
 
 import com.typesafe.scalalogging.StrictLogging
-  
-class Client(name: String, s: In[binary.PlayC], wait: Duration)
-            (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
+
+class Client(name: String, s: In[binary.PlayC], wait: Duration)(
+    implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${name}: ${msg}")
   private def logDebug(msg: String) = logger.debug(f"${name}: ${msg}")
   private def logInfo(msg: String) = logger.info(f"${name}: ${msg}")
@@ -46,10 +47,10 @@ class Client(name: String, s: In[binary.PlayC], wait: Duration)
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
-  
+
   override def run() = {
     val c = MPPlayC(s) // Wrap the channel in a multiparty session obj
-    
+
     logInfo("Started.  Waiting for multiparty session...")
     val game = c.receive.p
     logInfo("...done.  Waiting for B's info...")
@@ -58,7 +59,7 @@ class Client(name: String, s: In[binary.PlayC], wait: Duration)
     val info2 = info.cont.send(InfoCA(f"${info.p}, ${name}"))
     loop(info2)
   }
-  
+
   @scala.annotation.tailrec
   private def loop(g: MPMov1BCOrMov2BC): Unit = {
     logInfo(f"Delay: ${wait}")
@@ -74,7 +75,7 @@ class Client(name: String, s: In[binary.PlayC], wait: Duration)
         logInfo(f"Got Mov2BC(${p}), sending Mov2CA(${p}) and looping")
         val g2 = cont.send(Mov2CA(p))
         loop(g2)
-      } 
+      }
     }
   }
 }
@@ -82,31 +83,32 @@ class Client(name: String, s: In[binary.PlayC], wait: Duration)
 object Actor extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
   import akka.actor.ActorSystem
-  
+
   import binary.actor.{ConnectC => Connect}
-  
+
   val config = ConfigFactory.load() // Loads resources/application.conf
   implicit val as = ActorSystem("GameClientCSys",
-                          config = Some(config.getConfig("GameClientCSys")),
-                          defaultExecutionContext = Some(global))
-  
+                                config =
+                                  Some(config.getConfig("GameClientCSys")),
+                                defaultExecutionContext = Some(global))
+
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
-  
+
   implicit val timeout = 60.seconds
-  
-  val serverPath =  "akka.tcp://GameServerSys@127.0.0.1:31340/user/c"
+
+  val serverPath = "akka.tcp://GameServerSys@127.0.0.1:31340/user/c"
   println(f"[*] Connecting to ${serverPath}...")
   val c: Out[Connect] = ActorOut[Connect](serverPath)
-  val c2 = c !! Connect()_
-  
+  val c2 = c !! Connect() _
+
   val client = new Client("Carol", c2, 1.seconds)(30.seconds)
-  
+
   client.join()
   // Cleanup and hut down the actor system
   ActorChannel.cleanup()

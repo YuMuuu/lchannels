@@ -32,7 +32,7 @@ import lchannels._
 // Session type S_front:
 // rec X . ?GetSession() . (!Active(S_act).end (+) !New(S_auth).end) . X
 ///////////////////////////////////////////////////////////////////////////////
-case class GetSession(id: Int)(val cont:Out[GetSessionResult])
+case class GetSession(id: Int)(val cont: Out[GetSessionResult])
 
 sealed abstract class GetSessionResult
 case class Active(chat: Out[session.Command]) extends GetSessionResult
@@ -47,29 +47,29 @@ package session {
   //            ?Quit.end )
   /////////////////////////////////////////////////////////////////////////////
   sealed abstract class Command
-  case class GetId()(val cont: Out[Id])                 extends session.Command
-  case class Ping(msg: String)(val cont: Out[Pong])     extends session.Command
+  case class GetId()(val cont: Out[Id]) extends session.Command
+  case class Ping(msg: String)(val cont: Out[Pong]) extends session.Command
   case class Join(room: String)(val cont: Out[ChatRoom]) extends session.Command
-  case class Quit()                                     extends session.Command
-  
+  case class Quit() extends session.Command
+
   case class Id(id: Int)(val cont: Out[Command])
-  
+
   case class Pong(msg: String)(val cont: Out[Command])
-  
-  case class ChatRoom(msgs: In[room.Messages], ctl: Out[roomctl.Control])
-                     (val cont: Out[Command])
+
+  case class ChatRoom(msgs: In[room.Messages], ctl: Out[roomctl.Control])(
+      val cont: Out[Command])
 }
 
-package room { 
+package room {
   /////////////////////////////////////////////////////////////////////////////
   // Session type S_r:
   // rec X . !NewMessage(String, String).X  (+)  !Ping().?Pong().X (+) !Quit()
   /////////////////////////////////////////////////////////////////////////////
   sealed abstract class Messages
-  case class NewMessage(username: String, text: String)
-                       (val cont: In[Messages])                extends Messages
-  case class Ping(msg: String)(val cont: Out[Pong])            extends Messages
-  case class Quit()                                            extends Messages
+  case class NewMessage(username: String, text: String)(val cont: In[Messages])
+      extends Messages
+  case class Ping(msg: String)(val cont: Out[Pong]) extends Messages
+  case class Quit() extends Messages
 
   case class Pong(msg: String)(val cont: Out[Messages])
 }
@@ -81,9 +81,9 @@ package roomctl {
   /////////////////////////////////////////////////////////////////////////////
   sealed abstract class Control
   case class SendMessage(text: String)(val cont: In[Control]) extends Control
-  case class Ping(msg: String)(val cont: Out[Pong])           extends Control
-  case class Quit()                                           extends Control
-  
+  case class Ping(msg: String)(val cont: Out[Pong]) extends Control
+  case class Quit() extends Control
+
   case class Pong(msg: String)(val cont: Out[Control])
 }
 
@@ -92,10 +92,10 @@ package auth {
   // Session type S_auth:
   // ?Authenticate(Credentials) . (!Success(S_act).end (+) !Failure().end)
   /////////////////////////////////////////////////////////////////////////////
-  case class Authenticate(username: String, password: String)
-                         (val cont: Out[AuthenticateResult])
+  case class Authenticate(username: String, password: String)(
+      val cont: Out[AuthenticateResult])
 
   sealed abstract class AuthenticateResult
   case class Success(service: Out[session.Command]) extends AuthenticateResult
-  case class Failure()                              extends AuthenticateResult
+  case class Failure() extends AuthenticateResult
 }

@@ -30,12 +30,12 @@ abstract class In[M, +T] extends lchannels.In[T]
 
 abstract class Out[M, -T] extends lchannels.Out[T] {
   override def create[U](): (In[M, U], Out[M, U])
-  
+
   /** Medium-constrained version of [[lchannels.Out.createContIn]]. */
-  override def createContIn[U](): (In[M, U], Out[M, U])  = create[U]()
-  
+  override def createContIn[U](): (In[M, U], Out[M, U]) = create[U]()
+
   /** Medium-constrained version of [[lchannels.Out.createContOut]]. */
-  override def createContOut[U](): (In[M, U], Out[M, U])  = create[U]()
+  override def createContOut[U](): (In[M, U], Out[M, U]) = create[U]()
 
   // FIXME: we would ideally merge ! and !!, but Scala gets confused
   // NOTE: !! works better with messages defined as curried case classes
@@ -46,6 +46,7 @@ abstract class Out[M, -T] extends lchannels.Out[T] {
     this ! f(cin)
     cout
   }
+
   /** Medium-constrained version of [[lchannels.Out]].`!!`. */
   def !![U](f: Out[M, U] => T): In[M, U] = {
     val (cin, cout) = createContIn[U]()

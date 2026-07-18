@@ -33,7 +33,8 @@ import com.typesafe.scalalogging.StrictLogging
 import lchannels._
 
 import lchannels.examples.sleepingbarber.customer.{
-  Description => CustDescription, Cut => CustCut
+  Description => CustDescription,
+  Cut => CustCut
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -42,42 +43,44 @@ import lchannels.examples.sleepingbarber.customer.{
 //////////////////////////////////////////////////////////////////////////////
 protected[barbershop] case class Available()(val cont: Out[Serve])
 
-protected[barbershop] case class Serve(chan: In[CustDescription])
-                                      (val cont: Out[Available])
+protected[barbershop] case class Serve(chan: In[CustDescription])(
+    val cont: Out[Available])
 //////////////////////////////////////////////////////////////////////////////
 
-class Barber(shop: Out[Available])
-            (implicit d: Duration) extends Runnable with StrictLogging {
+class Barber(shop: Out[Available])(implicit d: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
   private def logDebug(msg: String) = logger.debug(f"${msg}")
   private def logInfo(msg: String) = logger.info(f"${msg}")
   private def logWarn(msg: String) = logger.warn(f"${msg}")
   private def logError(msg: String) = logger.error(f"${msg}")
-  
+
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def quit() = thread.interrupt()
-  
+
   override def run(): Unit = {
     logInfo("started, entering main loop")
     loop(shop)
     logInfo("quitting")
   }
-  
+
   // NOTE: loop() is not tail-recursive --- left as it is for simplicity
-  private def loop(shop: Out[Available]): Unit= try {
-    logInfo("signaling availability, and waiting for customer")
-    (shop !! Available()_) ? { customer =>
-      logInfo("got customer, waiting for haircut description")
-      customer.chan ? { descr =>
-        logInfo("performing haircut, and waiting for payment...")
-        (descr.cont !! CustCut()_) ? { pay =>
-          logInfo("payment received, customer dismissed")
+  private def loop(shop: Out[Available]): Unit =
+    try {
+      logInfo("signaling availability, and waiting for customer")
+      (shop !! Available() _) ? { customer =>
+        logInfo("got customer, waiting for haircut description")
+        customer.chan ? { descr =>
+          logInfo("performing haircut, and waiting for payment...")
+          (descr.cont !! CustCut() _) ? { pay =>
+            logInfo("payment received, customer dismissed")
+          }
         }
+        loop(customer.cont)
       }
-      loop(customer.cont)
+    } catch {
+      case _: InterruptedException => logInfo("interrupted, leaving main loop")
     }
-  } catch {
-    case _: InterruptedException => logInfo("interrupted, leaving main loop")
-  }
 }

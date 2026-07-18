@@ -27,7 +27,11 @@
 package lchannels.examples.threebuyer.demo
 
 import lchannels._
-import lchannels.examples.threebuyer.protocol.binary.{PlayAlice, PlayBob, Contrib}
+import lchannels.examples.threebuyer.protocol.binary.{
+  PlayAlice,
+  PlayBob,
+  Contrib
+}
 import lchannels.examples.threebuyer.alice.Alice
 import lchannels.examples.threebuyer.bob.Bob
 import lchannels.examples.threebuyer.carol.Carol
@@ -38,7 +42,7 @@ import scala.concurrent.{Await, duration, Promise}
 object Local extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   Demo.start(() => LocalChannel.factory[PlayAlice](),
              () => LocalChannel.factory[PlayBob](),
              () => LocalChannel.factory[Contrib]())
@@ -50,11 +54,11 @@ object Demo {
             cfactory: () => (In[Contrib], Out[Contrib])) = {
     import scala.concurrent.duration._
     implicit val timeout = 60.seconds
-    
+
     // Client/server channels towards Alice and Bob
     val (ca, sa) = afactory()
     val (cb, sb) = bfactory()
-    
+
     // Promise/future pair used to "connect" Bob and Carol
     val bcp = Promise[In[Contrib]]
     val bcf = bcp.future
@@ -69,18 +73,18 @@ object Demo {
       bco // ...and return the other endpoint
     }
     def bobConnector = Await.result(bcf, duration.Duration.Inf)
-    
+
     val seller = new Seller(sa, sb)
     val alice = new Alice(ca)
     val bob = new Bob(cb, carolConnector)
     val carol = new Carol(() => bobConnector)
-    
+
     // Wait for Alice, Bob, Seller to quit (NOTE: Carol might not be involved)
     alice.join()
     bob.join()
     seller.join()
-    
-    Thread.sleep(1000) // Just to let Carol terminate, if involved 
+
+    Thread.sleep(1000) // Just to let Carol terminate, if involved
     carol.interrupt()
   }
 }

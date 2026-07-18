@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Multiparty protocol classes for role Alice in three-buyer example.
- *  The classes in this package have been automatically generated from the
- *  multiparty game protocol:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  multiparty game protocol:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.threebuyer.protocol.alice
 
 import scala.concurrent.duration.Duration
@@ -63,7 +63,7 @@ case class MPPlayAlice(c: In[binary.PlayAlice]) {
 
 case class MPTitle(bob: Out[binary.ShareA], seller: Out[binary.Title]) {
   def send(v: Title) = {
-    val cnt = seller !! binary.Title(v.p)_
+    val cnt = seller !! binary.Title(v.p) _
     MPQuoteA(bob, cnt)
   }
 }
@@ -80,7 +80,7 @@ case class MPQuoteA(bob: Out[binary.ShareA], seller: In[binary.QuoteA]) {
 
 case class MPShareA(bob: Out[binary.ShareA], seller: Unit) {
   def send(v: ShareA) = {
-    val cnt = bob !! binary.ShareA(v.p)_
+    val cnt = bob !! binary.ShareA(v.p) _
     MPOkAOrQuitA(cnt, seller)
   }
 }

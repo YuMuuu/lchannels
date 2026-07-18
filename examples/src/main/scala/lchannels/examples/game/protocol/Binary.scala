@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Binary protocol classes for the multiparty game.
- *  The classes in this package have been automatically generated from the
- *  multiparty game protocol:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  multiparty game protocol:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.game.protocol.binary
 
 import lchannels._
@@ -43,26 +43,29 @@ case class PlayA(p: a.MPInfoCA)
 
 sealed abstract class Mov1ABOrMov2AB
 case class Mov1AB(p: Int)(val cont: In[Mov1ABOrMov2AB]) extends Mov1ABOrMov2AB
-case class Mov2AB(p: Boolean)(val cont: In[Mov1ABOrMov2AB]) extends Mov1ABOrMov2AB
+case class Mov2AB(p: Boolean)(val cont: In[Mov1ABOrMov2AB])
+    extends Mov1ABOrMov2AB
 case class InfoCA(p: String)(val cont: In[Mov1CAOrMov2CA])
 
 sealed abstract class Mov1CAOrMov2CA
 case class Mov1CA(p: Int)(val cont: In[Mov1CAOrMov2CA]) extends Mov1CAOrMov2CA
-case class Mov2CA(p: Boolean)(val cont: In[Mov1CAOrMov2CA]) extends Mov1CAOrMov2CA
+case class Mov2CA(p: Boolean)(val cont: In[Mov1CAOrMov2CA])
+    extends Mov1CAOrMov2CA
 
 case class PlayB(p: b.MPInfoBC)
 
 case class InfoBC(p: String)(val cont: In[Mov1BCOrMov2BC])
 sealed abstract class Mov1BCOrMov2BC
 case class Mov1BC(p: Int)(val cont: In[Mov1BCOrMov2BC]) extends Mov1BCOrMov2BC
-case class Mov2BC(p: Boolean)(val cont: In[Mov1BCOrMov2BC]) extends Mov1BCOrMov2BC
+case class Mov2BC(p: Boolean)(val cont: In[Mov1BCOrMov2BC])
+    extends Mov1BCOrMov2BC
 
 case class PlayC(p: c.MPInfoBC)
 // No more protocol classes needed for player C: they are shared with A and B
 
 /** Binary protocol classes for establishing a client/server connection
- *  (used e.g. in the actor-based demo)
- */
+  *  (used e.g. in the actor-based demo)
+  */
 package object actor {
   case class ConnectA()(val cont: Out[PlayA])
   case class ConnectB()(val cont: Out[PlayB])

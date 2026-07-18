@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Multiparty protocol classes for game player A.
- *  The classes in this package have been automatically generated from the
- *  multiparty game protocol:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  multiparty game protocol:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.game.protocol.a
 
 import scala.concurrent.duration.Duration
@@ -42,7 +42,8 @@ case class InfoCA(p: String, cont: MPInfoAB)
 
 sealed abstract class MsgMPMov1CAOrMov2CA
 case class Mov1CA(p: Int, cont: MPMov1ABOrMov2AB) extends MsgMPMov1CAOrMov2CA
-case class Mov2CA(p: Boolean, cont: MPMov1ABOrMov2AB) extends MsgMPMov1CAOrMov2CA
+case class Mov2CA(p: Boolean, cont: MPMov1ABOrMov2AB)
+    extends MsgMPMov1CAOrMov2CA
 
 // Output message types for multiparty sessions
 case class InfoAB(p: String)
@@ -51,52 +52,54 @@ case class Mov2AB(p: Boolean)
 
 // Multiparty session classes
 case class MPPlayA(q: In[binary.PlayA]) {
-	def receive(implicit timeout: Duration = Duration.Inf) = {
-		q.receive(timeout) match {
-		  case m @ binary.PlayA(p) => {
-			  PlayA(p)
-		  }
-		}
-	}
+  def receive(implicit timeout: Duration = Duration.Inf) = {
+    q.receive(timeout) match {
+      case m @ binary.PlayA(p) => {
+        PlayA(p)
+      }
+    }
+  }
 }
 
 case class MPInfoCA(b: Out[binary.InfoAB], c: In[binary.InfoCA]) {
-	def receive(implicit timeout: Duration = Duration.Inf) = {
-		c.receive(timeout) match {
-		  case m @ binary.InfoCA(p) => {
-			  InfoCA(p, MPInfoAB(b, m.cont))
-		  }
-		}
-	}
+  def receive(implicit timeout: Duration = Duration.Inf) = {
+    c.receive(timeout) match {
+      case m @ binary.InfoCA(p) => {
+        InfoCA(p, MPInfoAB(b, m.cont))
+      }
+    }
+  }
 }
 
 case class MPInfoAB(b: Out[binary.InfoAB], c: In[binary.Mov1CAOrMov2CA]) {
-	def send(v: InfoAB) = {
-		val cnt = b !! binary.InfoAB(v.p)_
-		MPMov1ABOrMov2AB(cnt, c)
-	}
+  def send(v: InfoAB) = {
+    val cnt = b !! binary.InfoAB(v.p) _
+    MPMov1ABOrMov2AB(cnt, c)
+  }
 }
 
-case class MPMov1ABOrMov2AB(b: Out[binary.Mov1ABOrMov2AB], c: In[binary.Mov1CAOrMov2CA]) {
-	def send(v: Mov1AB) = {
-		val cnt = b !! binary.Mov1AB(v.p)_
-		MPMov1CAOrMov2CA(cnt, c)
-	}
-	def send(v: Mov2AB) = {
-		val cnt = b !! binary.Mov2AB(v.p)_
-		MPMov1CAOrMov2CA(cnt, c)
-	}
+case class MPMov1ABOrMov2AB(b: Out[binary.Mov1ABOrMov2AB],
+                            c: In[binary.Mov1CAOrMov2CA]) {
+  def send(v: Mov1AB) = {
+    val cnt = b !! binary.Mov1AB(v.p) _
+    MPMov1CAOrMov2CA(cnt, c)
+  }
+  def send(v: Mov2AB) = {
+    val cnt = b !! binary.Mov2AB(v.p) _
+    MPMov1CAOrMov2CA(cnt, c)
+  }
 }
 
-case class MPMov1CAOrMov2CA(b: Out[binary.Mov1ABOrMov2AB], c: In[binary.Mov1CAOrMov2CA]) {
-	def receive(implicit timeout: Duration = Duration.Inf) = {
-		c.receive(timeout) match {
-		  case m @ binary.Mov1CA(p) => {
-			  Mov1CA(p, MPMov1ABOrMov2AB(b, m.cont))
-		  }
-		  case m @ binary.Mov2CA(p) => {
-			  Mov2CA(p, MPMov1ABOrMov2AB(b, m.cont))
-		  }
-		}
-	}
+case class MPMov1CAOrMov2CA(b: Out[binary.Mov1ABOrMov2AB],
+                            c: In[binary.Mov1CAOrMov2CA]) {
+  def receive(implicit timeout: Duration = Duration.Inf) = {
+    c.receive(timeout) match {
+      case m @ binary.Mov1CA(p) => {
+        Mov1CA(p, MPMov1ABOrMov2AB(b, m.cont))
+      }
+      case m @ binary.Mov2CA(p) => {
+        Mov2CA(p, MPMov1ABOrMov2AB(b, m.cont))
+      }
+    }
+  }
 }

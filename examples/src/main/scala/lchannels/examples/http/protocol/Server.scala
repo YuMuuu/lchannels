@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** HTTP protocol server.
- *  The classes in this package have been automatically generated from the
- *  Scribble HTTP protocol definition:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Http.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  Scribble HTTP protocol definition:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Http.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.http.protocol.server
 
 import scala.concurrent.duration.Duration
@@ -43,13 +43,19 @@ import java.time.ZonedDateTime
 case class Request(p: RequestLine, cont: MPRequestChoice)
 
 sealed abstract class MsgMPRequestChoice
-case class AcceptEncodings(p: String, cont: MPRequestChoice) extends MsgMPRequestChoice
+case class AcceptEncodings(p: String, cont: MPRequestChoice)
+    extends MsgMPRequestChoice
 case class Accept(p: String, cont: MPRequestChoice) extends MsgMPRequestChoice
-case class DoNotTrack(p: Boolean, cont: MPRequestChoice) extends MsgMPRequestChoice
-case class UpgradeIR(p: Boolean, cont: MPRequestChoice) extends MsgMPRequestChoice
-case class Connection(p: String, cont: MPRequestChoice) extends MsgMPRequestChoice
-case class UserAgent(p: String, cont: MPRequestChoice) extends MsgMPRequestChoice
-case class AcceptLanguage(p: String, cont: MPRequestChoice) extends MsgMPRequestChoice
+case class DoNotTrack(p: Boolean, cont: MPRequestChoice)
+    extends MsgMPRequestChoice
+case class UpgradeIR(p: Boolean, cont: MPRequestChoice)
+    extends MsgMPRequestChoice
+case class Connection(p: String, cont: MPRequestChoice)
+    extends MsgMPRequestChoice
+case class UserAgent(p: String, cont: MPRequestChoice)
+    extends MsgMPRequestChoice
+case class AcceptLanguage(p: String, cont: MPRequestChoice)
+    extends MsgMPRequestChoice
 case class Host(p: String, cont: MPRequestChoice) extends MsgMPRequestChoice
 case class RequestBody(p: Body, cont: MPHttpVersion) extends MsgMPRequestChoice
 
@@ -116,45 +122,45 @@ case class MPRequestChoice(c: In[binary.RequestChoice]) {
 
 case class MPHttpVersion(c: Out[binary.HttpVersion]) {
   def send(v: HttpVersion) = {
-    val cnt = c !! binary.HttpVersion(v.p)_
+    val cnt = c !! binary.HttpVersion(v.p) _
     MPCode200OrCode404(cnt)
   }
 }
 
 case class MPCode200OrCode404(c: Out[binary.Code200OrCode404]) {
   def send(v: Code200) = {
-    val cnt = c !! binary.Code200(v.p)_
+    val cnt = c !! binary.Code200(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: Code404) = {
-    val cnt = c !! binary.Code404(v.p)_
+    val cnt = c !! binary.Code404(v.p) _
     MPResponseChoice(cnt)
   }
 }
 
 case class MPResponseChoice(c: Out[binary.ResponseChoice]) {
   def send(v: AcceptRanges) = {
-    val cnt = c !! binary.AcceptRanges(v.p)_
+    val cnt = c !! binary.AcceptRanges(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: ContentLength) = {
-    val cnt = c !! binary.ContentLength(v.p)_
+    val cnt = c !! binary.ContentLength(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: ContentType) = {
-    val cnt = c !! binary.ContentType(v.p)_
+    val cnt = c !! binary.ContentType(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: Date) = {
-    val cnt = c !! binary.Date(v.p)_
+    val cnt = c !! binary.Date(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: ETag) = {
-    val cnt = c !! binary.ETag(v.p)_
+    val cnt = c !! binary.ETag(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: LastModified) = {
-    val cnt = c !! binary.LastModified(v.p)_
+    val cnt = c !! binary.LastModified(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: ResponseBody) = {
@@ -162,19 +168,19 @@ case class MPResponseChoice(c: Out[binary.ResponseChoice]) {
     ()
   }
   def send(v: Server) = {
-    val cnt = c !! binary.Server(v.p)_
+    val cnt = c !! binary.Server(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: StrictTS) = {
-    val cnt = c !! binary.StrictTS(v.p)_
+    val cnt = c !! binary.StrictTS(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: Vary) = {
-    val cnt = c !! binary.Vary(v.p)_
+    val cnt = c !! binary.Vary(v.p) _
     MPResponseChoice(cnt)
   }
   def send(v: Via) = {
-    val cnt = c !! binary.Via(v.p)_
+    val cnt = c !! binary.Via(v.p) _
     MPResponseChoice(cnt)
   }
 }

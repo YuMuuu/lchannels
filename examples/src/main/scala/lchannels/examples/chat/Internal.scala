@@ -24,9 +24,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 /** Internal definitions, e.g. protocols not intended for client usage
- * 
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk>
- */
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk>
+  */
 package lchannels.examples.chat.protocol.internal
 
 import lchannels._
@@ -36,23 +36,21 @@ package session {
   // Type for retrieving existing chat sessions from session server:
   // rec X . ?GetSession(Int) . (!Session(S_act).X (+) Failure().end)
   ////////////////////////////////////////////////////////////////////////////
-  import lchannels.examples.chat.protocol.public.session.{
-    Command => PubCommand
-  }
-  
+  import lchannels.examples.chat.protocol.public.session.{Command => PubCommand}
+
   case class GetSession(id: Int)(val cont: Out[GetSessionResult])
-  
+
   sealed abstract class GetSessionResult
-  case class Success(channel: Out[PubCommand])
-                    (val cont: Out[GetSession])   extends GetSessionResult
+  case class Success(channel: Out[PubCommand])(val cont: Out[GetSession])
+      extends GetSessionResult
   case class Failure()(val cont: Out[GetSession]) extends GetSessionResult
-  
+
   ////////////////////////////////////////////////////////////////////////////
   // Type for creating chat sessions on chat server (used by auth server):
   // rec X . ?CreateSession(String).!NewSession(S_act).X
   ////////////////////////////////////////////////////////////////////////////
   case class CreateSession(username: String)(val cont: Out[NewSession])
-  
+
   case class NewSession(channel: Out[PubCommand])(val cont: Out[CreateSession])
 }
 
@@ -64,9 +62,9 @@ package auth {
   import lchannels.examples.chat.protocol.public.auth.{
     Authenticate => PubAuthenticate
   }
-  
+
   case class GetAuthentication()(val cont: Out[Authentication])
 
-  case class Authentication(channel: Out[PubAuthenticate])
-                           (val cont: Out[GetAuthentication])
+  case class Authentication(channel: Out[PubAuthenticate])(
+      val cont: Out[GetAuthentication])
 }

@@ -38,49 +38,53 @@ import com.typesafe.scalalogging.StrictLogging
 
 import lchannels.examples.chat.protocol.public.auth._
 import lchannels.examples.chat.protocol.internal.auth.{
-  GetAuthentication => IntGetAuth, Authentication => IntAuth
+  GetAuthentication => IntGetAuth,
+  Authentication => IntAuth
 }
 import lchannels.examples.chat.protocol.internal.session.{
   CreateSession => IntCreateSession
 }
 
 /** Chat server frontend */
-class AuthServer(chan: In[IntGetAuth], sessionSrv: Out[IntCreateSession],
-                 factory: () => (In[Authenticate], Out[Authenticate]))
-                (implicit ec: ExecutionContext, timeout: Duration)
-    extends Runnable with StrictLogging {
+class AuthServer(chan: In[IntGetAuth],
+                 sessionSrv: Out[IntCreateSession],
+                 factory: () => (In[Authenticate], Out[Authenticate]))(
+    implicit ec: ExecutionContext,
+    timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
   private def logDebug(msg: String) = logger.debug(f"${msg}")
   private def logInfo(msg: String) = logger.info(f"${msg}")
   private def logWarn(msg: String) = logger.warn(f"${msg}")
   private def logError(msg: String) = logger.error(f"${msg}")
-  
+
   // FIFO queue with requests from clients
   private val requests: Channel[Authenticate] = new Channel()
-  
+
   private val authenticator = new Authenticator(requests, sessionSrv)
-  
+
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def quit() = thread.interrupt()
-  
+
   override def run(): Unit = {
     logDebug("started")
     serverLoop(chan)
     logDebug("quitting authenticator")
     authenticator.quit()
   }
-  
+
   // Server loop for frontend interaction
-  private def serverLoop(chan: In[IntGetAuth])
-                        (implicit timeout: Duration): Unit = {
+  private def serverLoop(chan: In[IntGetAuth])(
+      implicit timeout: Duration): Unit = {
     try {
       chan ? { req =>
         logDebug(f"got ${req}, creating new authentication channels")
         val (in, out) = factory()
         in.future.onComplete(queueRequest) // Async. add request to FIFO
         logDebug("sending authentication channel")
-        serverLoop(req.cont !! IntAuth(out)_)
+        serverLoop(req.cont !! IntAuth(out) _)
       }
     } catch {
       case _: InterruptedException => {
@@ -88,7 +92,7 @@ class AuthServer(chan: In[IntGetAuth], sessionSrv: Out[IntCreateSession],
       }
     }
   }
-  
+
   private def queueRequest(req: Try[Authenticate]): Unit = req match {
     case Success(r) => {
       logDebug(f"queueing ${r}")
@@ -98,29 +102,32 @@ class AuthServer(chan: In[IntGetAuth], sessionSrv: Out[IntCreateSession],
   }
 }
 
-private class Authenticator(requests: Channel[Authenticate],
-                            sessionSrv: Out[IntCreateSession])
-                           (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
+private class Authenticator(
+    requests: Channel[Authenticate],
+    sessionSrv: Out[IntCreateSession])(implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${msg}")
   private def logDebug(msg: String) = logger.debug(f"${msg}")
   private def logInfo(msg: String) = logger.info(f"${msg}")
   private def logWarn(msg: String) = logger.warn(f"${msg}")
   private def logError(msg: String) = logger.error(f"${msg}")
-  
+
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def quit() = thread.interrupt()
-  
+
   private val accounts = List(
-    ("alice", "password"), ("bob", "password"), ("carol", "password")
+    ("alice", "password"),
+    ("bob", "password"),
+    ("carol", "password")
   )
-  
+
   override def run() = {
     logDebug("started")
     serverLoop(sessionSrv)
   }
-  
+
   def serverLoop(sessionSrv: Out[IntCreateSession]): Unit = {
     try {
       serverLoop(serve(requests.read, sessionSrv))
@@ -130,13 +137,12 @@ private class Authenticator(requests: Channel[Authenticate],
       }
     }
   }
-  
-  private def serve(req: Authenticate,
-                    sessionSrv: Out[IntCreateSession])
-                   (implicit timeout: Duration): Out[IntCreateSession] = {
+
+  private def serve(req: Authenticate, sessionSrv: Out[IntCreateSession])(
+      implicit timeout: Duration): Out[IntCreateSession] = {
     if (accounts.contains((req.username, req.password))) {
       logDebug(f"login successful for ${req.username}, getting new session")
-      (sessionSrv !! IntCreateSession(req.username)_) ? { newSess =>
+      (sessionSrv !! IntCreateSession(req.username) _) ? { newSess =>
         logDebug(f"forwarding new session")
         req.cont ! auth.Success(newSess.channel)
         newSess.cont
