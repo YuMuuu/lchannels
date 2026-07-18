@@ -33,10 +33,10 @@ import lchannels.examples.threebuyer.protocol.alice._
 import scala.concurrent.duration._
 
 import com.typesafe.scalalogging.StrictLogging
-  
-class Alice(s: In[binary.PlayAlice])
-           (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
+
+class Alice(s: In[binary.PlayAlice])(implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(msg)
   private def logDebug(msg: String) = logger.debug(msg)
   private def logInfo(msg: String) = logger.info(msg)
@@ -46,13 +46,13 @@ class Alice(s: In[binary.PlayAlice])
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
-  
+
   override def run() = {
     val c = MPPlayAlice(s) // Wrap the channel in a multiparty session obj
-    
+
     logInfo("Started.  Waiting for multiparty session...")
     val c2 = c.receive.p
-    
+
     val choices = Map(
       1 -> ("Alice in Wonderland", "Lewis Carroll"),
       2 -> ("War and Peace", "Lev Nikolajevič Tolstoj"),
@@ -63,19 +63,19 @@ class Alice(s: In[binary.PlayAlice])
     val quote = c2.send(Title(title)).receive
     logInfo(f"Got quote: ${quote.p}")
     val halfQuote = quote.p / 2
-    
+
     logInfo(f"Telling Bob that we contribute ${halfQuote}; waiting answer...")
     quote.cont.send(ShareA(halfQuote)).receive match {
-      case OkA(()) => logInfo("Shared purchase accepted")
+      case OkA(())   => logInfo("Shared purchase accepted")
       case QuitA(()) => logInfo("Shared purchase rejected")
     }
-    
+
     logInfo("Terminating.")
   }
-    
+
   @scala.annotation.tailrec
   private def chooseTitle(choices: Map[Int, (String, String)]): String = {
-    
+
     println("Which book should Alice choose?  Please select:")
     for (k <- choices.keys) {
       val c = choices.get(k).get
@@ -95,31 +95,32 @@ class Alice(s: In[binary.PlayAlice])
 object Actor extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
   import akka.actor.ActorSystem
-  
+
   import binary.actor.ConnectAlice
-  
+
   val config = ConfigFactory.load() // Loads resources/application.conf
   implicit val as = ActorSystem("ThreeBuyerAliceSys",
-                          config = Some(config.getConfig("ThreeBuyerAliceSys")),
-                          defaultExecutionContext = Some(global))
-  
+                                config =
+                                  Some(config.getConfig("ThreeBuyerAliceSys")),
+                                defaultExecutionContext = Some(global))
+
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
-  
+
   implicit val timeout = 60.seconds
-  
+
   val sellerPath = "akka.tcp://ThreeBuyerSellerSys@127.0.0.1:31350/user/alice"
   println(f"[*] Connecting to ${sellerPath}...")
   val c: Out[ConnectAlice] = ActorOut[ConnectAlice](sellerPath)
-  val c2 = c !! ConnectAlice()_
-  
+  val c2 = c !! ConnectAlice() _
+
   val alice = new Alice(c2)(30.seconds)
-  
+
   alice.join()
   Thread.sleep(2000) // Just to deliver pending actor messages
   as.terminate()

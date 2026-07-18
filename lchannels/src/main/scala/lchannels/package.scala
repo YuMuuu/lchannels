@@ -24,23 +24,23 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 /** @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
-
 package object lchannels {
+
   /** Convenience trait allowing to distinguish the intended direction
-   *  of a channel or a message type.
-   */
+    *  of a channel or a message type.
+    */
   sealed trait Direction
-  
+
   /** Convenience trait for output channels,
-   *  and message types whose instances should be sent.
-   */
+    *  and message types whose instances should be sent.
+    */
   trait Send extends Direction
-  
+
   /** Convenience trait for input channels,
-   *  and message types whose instances should be received.
-   */
+    *  and message types whose instances should be received.
+    */
   trait Receive extends Direction
-  
+
   /** Convenience trait for channels without I/O capabilities. */
   trait None extends Direction
 }

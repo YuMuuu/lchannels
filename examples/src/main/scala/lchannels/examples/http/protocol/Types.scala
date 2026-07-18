@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Auxiliary types for the HTTP protocol server.
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.http.protocol.types
 
 sealed abstract class Version
@@ -35,10 +35,11 @@ case object Http11 extends Version {
 }
 
 object Version {
+
   /** Construct Version object from a string, as found in an HTTP request. */
   def apply(v: String) = v match {
     case "HTTP/1.1" => Http11
-    case _ => throw new RuntimeException(f"Unsupported HTTP version: ${v}")
+    case _          => throw new RuntimeException(f"Unsupported HTTP version: ${v}")
   }
 }
 
@@ -48,10 +49,11 @@ case object GET extends Method {
 }
 
 object Method {
+
   /** Construct method object from a string, as found in an HTTP request. */
   def apply(v: String) = v match {
     case "GET" => GET
-    case _ => throw new RuntimeException(f"Unsupported method: ${v}")
+    case _     => throw new RuntimeException(f"Unsupported method: ${v}")
   }
 }
 

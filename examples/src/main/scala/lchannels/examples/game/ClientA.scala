@@ -33,10 +33,11 @@ import lchannels.examples.game.protocol.a._
 import scala.concurrent.duration._
 
 import com.typesafe.scalalogging.StrictLogging
-  
-class Client(name: String, s: In[binary.PlayA], wait: Duration)
-            (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
+
+class Client(name: String, s: In[binary.PlayA], wait: Duration)(
+    implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${name}: ${msg}")
   private def logDebug(msg: String) = logger.debug(f"${name}: ${msg}")
   private def logInfo(msg: String) = logger.info(f"${name}: ${msg}")
@@ -46,10 +47,10 @@ class Client(name: String, s: In[binary.PlayA], wait: Duration)
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
-  
+
   override def run() = {
     val c = MPPlayA(s) // Wrap the channel in a multiparty session obj
-    
+
     logInfo("Started.  Waiting for multiparty session...")
     val game = c.receive.p
     logInfo("...done.  Waiting for info...")
@@ -59,7 +60,7 @@ class Client(name: String, s: In[binary.PlayA], wait: Duration)
     logInfo("...done.  Starting game loop.")
     loop(gloop, 1)
   }
-    
+
   @scala.annotation.tailrec
   private def loop(g: MPMov1ABOrMov2AB, loopn: Int): Unit = {
     logInfo(f"Delay: ${wait}")
@@ -72,25 +73,25 @@ class Client(name: String, s: In[binary.PlayA], wait: Duration)
         g2.receive match {
           case Mov1CA(p, cont) => {
             logInfo(f"Got Mov1CA(${p}), looping")
-            loop(cont, loopn+1)
+            loop(cont, loopn + 1)
           }
           case Mov2CA(p, cont) => {
             logInfo(f"Got Mov2CA(${p}), looping")
-            loop(cont, loopn+1)
+            loop(cont, loopn + 1)
           }
         }
       }
       case Mov2CA(p, cont) => {
-        logInfo(f"Got Mov1CA(${p}), sending Mov1AB(${loopn+1})")
-        val g2 = cont.send(Mov1AB(loopn+1))
+        logInfo(f"Got Mov1CA(${p}), sending Mov1AB(${loopn + 1})")
+        val g2 = cont.send(Mov1AB(loopn + 1))
         g2.receive match {
           case Mov1CA(p, cont) => {
             logInfo(f"Got Mov1CA(${p}), looping")
-            loop(cont, loopn+2)
+            loop(cont, loopn + 2)
           }
           case Mov2CA(p, cont) => {
             logInfo(f"Got Mov2CA(${p}), looping")
-            loop(cont, loopn+2)
+            loop(cont, loopn + 2)
           }
         }
       }
@@ -101,31 +102,32 @@ class Client(name: String, s: In[binary.PlayA], wait: Duration)
 object Actor extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
   import akka.actor.ActorSystem
-  
+
   import binary.actor.{ConnectA => Connect}
-  
+
   val config = ConfigFactory.load() // Loads resources/application.conf
   implicit val as = ActorSystem("GameClientASys",
-                          config = Some(config.getConfig("GameClientASys")),
-                          defaultExecutionContext = Some(global))
-  
+                                config =
+                                  Some(config.getConfig("GameClientASys")),
+                                defaultExecutionContext = Some(global))
+
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
-  
+
   implicit val timeout = 60.seconds
-  
-  val serverPath =  "akka.tcp://GameServerSys@127.0.0.1:31340/user/a"
+
+  val serverPath = "akka.tcp://GameServerSys@127.0.0.1:31340/user/a"
   println(f"[*] Connecting to ${serverPath}...")
   val c: Out[Connect] = ActorOut[Connect](serverPath)
-  val c2 = c !! Connect()_
-  
+  val c2 = c !! Connect() _
+
   val client = new Client("Alice", c2, 3.seconds)(30.seconds)
-  
+
   client.join()
   // Cleanup and hut down the actor system
   ActorChannel.cleanup()

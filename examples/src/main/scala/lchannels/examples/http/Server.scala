@@ -41,24 +41,25 @@ import com.typesafe.scalalogging.StrictLogging
 object Server extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import java.net.{InetAddress, ServerSocket}
-  
+
   val root = java.nio.file.FileSystems.getDefault().getPath("").toAbsolutePath
-  
+
   val address = InetAddress.getByName(null)
   val port = 8080
   val ssocket = new ServerSocket(port, 0, address)
-  
-  println(f"[*] HTTP server listening on: http://${address.getHostAddress}:${port}/")
+
+  println(
+    f"[*] HTTP server listening on: http://${address.getHostAddress}:${port}/")
   println(f"[*] Root directory: ${root}")
   println(f"[*] Press Ctrl+C to terminate")
-  
+
   implicit val timeout = 30.seconds
   accept(1)
-  
+
   @scala.annotation.tailrec
-  def accept(nextWorkerId: Int) {
+  def accept(nextWorkerId: Int): Unit = {
     val client = ssocket.accept()
     println(f"[*] Connection from ${client.getInetAddress}, spawning worker")
     new Worker(nextWorkerId, client, root)
@@ -66,25 +67,25 @@ object Server extends App {
   }
 }
 
-class Worker(id: Int, socket: Socket, root: Path)
-            (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
+class Worker(id: Int, socket: Socket, root: Path)(implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(msg)
   private def logDebug(msg: String) = logger.debug(msg)
   private def logInfo(msg: String) = logger.info(msg)
   private def logWarn(msg: String) = logger.warn(msg)
   private def logError(msg: String) = logger.error(msg)
-  
+
   private val serverName = "lchannels HTTP server"
   private val pslash = Paths.get("/") // Used to relativize request paths
 
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
-  
+
   override def run(): Unit = {
     logInfo("Started.")
-    
+
     // Socket manager for the HTTP connection
     val sktmgr = new binary.HttpServerSocketManager(socket, true, logInfo)
     // Create a SocketChannel (with the correct type) from the client socket...
@@ -92,7 +93,7 @@ class Worker(id: Int, socket: Socket, root: Path)
     // ...and wrap it with a multiparty (in this case, binary) session object,
     // to hide continuation-passing
     val r = MPRequest(c)
-    
+
     val (rpath, cont) = {
       try getRequest(r)
       catch {
@@ -105,20 +106,21 @@ class Worker(id: Int, socket: Socket, root: Path)
         }
       }
     }
-    
+
     val path = root.resolve(pslash.relativize(Paths.get(rpath)))
     logInfo(f"Resolved request path: ${path}")
     // TODO: we should reject paths like e.g. ../../../../etc/passwd
-    
+
     val cont2 = cont.send(HttpVersion(Http11))
-    
+
     val file = path.toFile
-    
+
     if (!file.exists || !file.canRead) {
       notFound(cont2, rpath)
     } else {
       logInfo("Resource found.")
-      val cont3 = cont2.send(Code200("OK"))
+      val cont3 = cont2
+        .send(Code200("OK"))
         .send(ServerName(serverName))
         .send(Date(ZonedDateTime.now))
       if (file.isFile) {
@@ -129,67 +131,68 @@ class Worker(id: Int, socket: Socket, root: Path)
         throw new RuntimeException(f"BUG: unsupported resource type: ${path}")
       }
     }
-    
+
     logInfo("Terminating.")
   }
-  
+
   private def getRequest(c: MPRequest)(implicit timeout: Duration) = {
     val req = c.receive
-    logInfo(f"Method: ${req.p.method}; path: ${req.p.path}; version: ${req.p.version}")
+    logInfo(
+      f"Method: ${req.p.method}; path: ${req.p.path}; version: ${req.p.version}")
     val cont = choices(req.cont)
     (req.p.path, cont)
   }
-  
+
   @scala.annotation.tailrec
-  private def choices(c: MPRequestChoice)
-                     (implicit timeout: Duration): MPHttpVersion = c.receive match {
-    case Accept(p, cont)  => {
+  private def choices(c: MPRequestChoice)(
+      implicit timeout: Duration): MPHttpVersion = c.receive match {
+    case Accept(p, cont) => {
       logInfo(f"Client accepts: ${p}")
       choices(cont)
     }
-    case AcceptEncodings(p, cont)  => {
+    case AcceptEncodings(p, cont) => {
       logInfo(f"Client encodings: ${p}")
       choices(cont)
     }
-    case AcceptLanguage(p, cont)  => {
+    case AcceptLanguage(p, cont) => {
       logInfo(f"Client languages: ${p}")
       choices(cont)
     }
-    case Connection(p, cont)  => {
+    case Connection(p, cont) => {
       logInfo(f"Client connection: ${p}")
       choices(cont)
     }
-    case DoNotTrack(p, cont)  => {
+    case DoNotTrack(p, cont) => {
       logInfo(f"Client Do Not Track flag: ${p}")
       choices(cont)
     }
-    case Host(p, cont)  => {
+    case Host(p, cont) => {
       logInfo(f"Client host: ${p}")
       choices(cont)
     }
-    case RequestBody(p, cont)  => {
+    case RequestBody(p, cont) => {
       logInfo(f"Client request body: ${p}")
       cont
     }
-    case UpgradeIR(p, cont)  => {
+    case UpgradeIR(p, cont) => {
       logInfo(f"Client upgrade insecure requests: ${p}")
       choices(cont)
     }
-    case UserAgent(p, cont)  => {
+    case UserAgent(p, cont) => {
       logInfo(f"Client user agent: ${p}")
       choices(cont)
     }
   }
-  
+
   private def notFound(c: MPCode200OrCode404, res: String) = {
     logInfo(f"Resource not found: ${res}")
     c.send(Code404("Not Found"))
       .send(ServerName(serverName))
       .send(Date(ZonedDateTime.now))
       .send(ResponseBody(
-          Body("text/plain", f"Resource ${res} not found".getBytes("UTF-8"))))
+        Body("text/plain", f"Resource ${res} not found".getBytes("UTF-8"))))
   }
-  
+
   private def serveFile(c: MPResponseChoice, file: Path) = {
     val filename = file.getFileName().toString()
     val contentType = {
@@ -198,16 +201,20 @@ class Worker(id: Int, socket: Socket, root: Path)
       else "text/plain" // TODO: we assume content is human-readable
     }
     logInfo(f"Serving file: ${file} (content type: ${contentType})")
-    
+
     // TODO: for simplicity, we assume all files are UTF-8
-    c.send(ResponseBody(
-        Body(f"${contentType}; charset=utf-8", java.nio.file.Files.readAllBytes(file))))
+    c.send(
+      ResponseBody(
+        Body(f"${contentType}; charset=utf-8",
+             java.nio.file.Files.readAllBytes(file))))
   }
-  
-  private def serveDirectory(c: MPResponseChoice, rpath: String, dir: java.io.File) = {
+
+  private def serveDirectory(c: MPResponseChoice,
+                             rpath: String,
+                             dir: java.io.File) = {
     logInfo(f"Serving directory: ${dir}")
-    
-    val list = dir.listFiles.foldLeft(""){(a,i) =>
+
+    val list = dir.listFiles.foldLeft("") { (a, i) =>
       a + f"""|      <li>
               |        <a href="${i.getName}${if (i.isFile) "" else "/"}">
               |          ${i.getName}${if (i.isFile) "" else "/"}
@@ -228,8 +235,7 @@ class Worker(id: Int, socket: Socket, root: Path)
                    |    <p><em>Page generated by ${serverName}</em></p>
                    |  </body>
                    |</html>\n""".stripMargin
-    
-    c.send(ResponseBody(
-        Body("text/html", html.getBytes("UTF-8"))))
+
+    c.send(ResponseBody(Body("text/html", html.getBytes("UTF-8"))))
   }
 }

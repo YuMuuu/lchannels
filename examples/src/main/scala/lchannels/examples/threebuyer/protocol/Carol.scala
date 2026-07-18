@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Multiparty protocol classes for role Carol in three-buyer example.
- *  The classes in this package have been automatically generated from the
- *  multiparty game protocol:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  multiparty game protocol:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.threebuyer.protocol.carol
 
 import scala.concurrent.duration.Duration
@@ -78,14 +78,14 @@ case class MPDelegate(bob: In[binary.Delegate]) {
 
 case class MPOkS(alice: Unit, seller: Out[binary.OkSOrQuitS]) {
   def send(v: OkS) = {
-    val cnt = seller !! binary.OkS(v.p)_
+    val cnt = seller !! binary.OkS(v.p) _
     MPAddress(alice, cnt)
   }
 }
 
 case class MPAddress(alice: Unit, seller: Out[binary.Address]) {
   def send(v: Address) = {
-    val cnt = seller !! binary.Address(v.p)_
+    val cnt = seller !! binary.Address(v.p) _
     MPDeliver(alice, cnt)
   }
 }

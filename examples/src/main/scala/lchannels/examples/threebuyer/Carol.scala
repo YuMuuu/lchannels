@@ -34,10 +34,10 @@ import lchannels.examples.threebuyer.protocol.carol._
 import scala.concurrent.duration._
 
 import com.typesafe.scalalogging.StrictLogging
-  
-class Carol(bobConnector: () => In[binary.Contrib])
-           (implicit timeout: Duration)
-    extends Runnable with StrictLogging {
+
+class Carol(bobConnector: () => In[binary.Contrib])(implicit timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(msg)
   private def logDebug(msg: String) = logger.debug(msg)
   private def logInfo(msg: String) = logger.info(msg)
@@ -48,7 +48,7 @@ class Carol(bobConnector: () => In[binary.Contrib])
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
   def interrupt() = thread.interrupt()
-  
+
   override def run(): Unit = {
     logInfo("Started.  Ready to connect with Bob...")
     val bobc = try {
@@ -61,14 +61,14 @@ class Carol(bobConnector: () => In[binary.Contrib])
         return
       }
     }
-    
+
     logInfo("Bob connected.  Waiting for his contribution request...")
     val contrib = bobc.receive
-    logInfo(f"Bob is asking for: ${contrib.p}") 
-    
+    logInfo(f"Bob is asking for: ${contrib.p}")
+
     logInfo("Receiving delegated session with Seller and Alice")
     val deleg = contrib.cont.receive
-    
+
     val budget = 100
     logInfo(f"My budget is: ${budget}")
     if (contrib.p > budget) {
@@ -78,13 +78,14 @@ class Carol(bobConnector: () => In[binary.Contrib])
     } else {
       logInfo(f"Budget OK: accepting, sending address, waiting delivery date")
       deleg.cont.send(OkC(()))
-      val delivery = deleg.p.send(bob.OkA(()))
+      val delivery = deleg.p
+        .send(bob.OkA(()))
         .send(bob.OkS(()))
         .send(bob.Address("Carol Jones, 17 Cherry Tree Lane, London, UK"))
         .receive
       logInfo(f"Got delivery date: ${delivery.p}")
     }
-    
+
     logInfo("Terminating.")
   }
 }
@@ -92,34 +93,35 @@ class Carol(bobConnector: () => In[binary.Contrib])
 object Actor extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
   import akka.actor.ActorSystem
-  
+
   val config = ConfigFactory.load() // Loads resources/application.conf
   implicit val as = ActorSystem("ThreeBuyerCarolSys",
-                          config = Some(config.getConfig("ThreeBuyerCarolSys")),
-                          defaultExecutionContext = Some(global))
-  
+                                config =
+                                  Some(config.getConfig("ThreeBuyerCarolSys")),
+                                defaultExecutionContext = Some(global))
+
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
-  
+
   implicit val timeout = 120.seconds
-  
+
   // We give a human-readable name to the connection endpoints
   val (bi, bo) = ActorChannel.factory[binary.actor.ConnectCarol]("bob");
   println(f"[*] Waiting Bob's connections on: ${bo.path}")
-  
+
   def connector = {
     val conn = bi.receive
     println(f"[*] Bob connected")
     conn.cont
   }
-  
+
   val alice = new Carol(() => connector)(30.seconds)
-  
+
   alice.join()
   Thread.sleep(2000) // Just to deliver pending actor messages
   as.terminate()

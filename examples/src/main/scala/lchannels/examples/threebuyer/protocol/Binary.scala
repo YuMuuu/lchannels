@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Binary protocol classes for the three-buyer example.
- *  The classes in this package have been automatically generated from the
- *  multiparty game protocol:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  multiparty game protocol:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.threebuyer.protocol.binary
 
 import lchannels._
@@ -71,12 +71,12 @@ case class OkC(p: Unit) extends OkCOrQuitC
 case class QuitC(p: Unit) extends OkCOrQuitC
 
 /** Binary protocol classes for establishing binary connections
- *  (used e.g. in the actor-based demo)
- */
+  *  (used e.g. in the actor-based demo)
+  */
 package object actor {
   case class ConnectAlice()(val cont: Out[PlayAlice])
   case class ConnectBob()(val cont: Out[PlayBob])
-  
+
   // TODO: this could be moved to a package only used by Bob and Carol
   case class ConnectCarol()(val cont: In[Contrib])
 }

@@ -40,7 +40,7 @@ import lchannels.examples.sleepingbarber.barbershop
 //                      where  S_cut  = !Description(String).?Haircut.!Pay.end
 //////////////////////////////////////////////////////////////////////////////
 sealed abstract class WaitingRoom
-case class Full()                      extends WaitingRoom
+case class Full() extends WaitingRoom
 case class Seat()(val cont: In[Ready]) extends WaitingRoom
 
 case class Ready()(val cont: Out[Description])
@@ -52,24 +52,25 @@ case class Cut()(val cont: Out[Pay])
 case class Pay(amount: Int)
 ////////////////////////////////////////////////////////////////////////////
 
-class Customer(name: String, shop: barbershop.Shop)
-              (implicit d: Duration) extends Runnable with StrictLogging {
+class Customer(name: String, shop: barbershop.Shop)(implicit d: Duration)
+    extends Runnable
+    with StrictLogging {
   private def logTrace(msg: String) = logger.trace(f"${name}: ${msg}")
   private def logDebug(msg: String) = logger.debug(f"${name}: ${msg}")
   private def logInfo(msg: String) = logger.info(f"${name}: ${msg}")
   private def logWarn(msg: String) = logger.warn(f"${name}: ${msg}")
   private def logError(msg: String) = logger.error(f"${name}: ${msg}")
-  
+
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def join() = thread.join()
-  
+
   override def run(): Unit = {
     logInfo("started, entering in shop")
     loop()
     logInfo("leaving the shop")
   }
-  
+
   private def loop(): Unit = {
     shop.enter() ? {
       case Full() => {
@@ -81,7 +82,7 @@ class Customer(name: String, shop: barbershop.Shop)
         logInfo("got a seat, waiting...")
         m.cont ? { ready =>
           logInfo("barber is ready, describing cut")
-          (ready.cont !! Description("Fancy hairdo")_) ? { cut =>
+          (ready.cont !! Description("Fancy hairdo") _) ? { cut =>
             logInfo("cut done, paying")
             cut.cont ! Pay(42)
           }

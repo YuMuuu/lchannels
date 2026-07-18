@@ -29,27 +29,49 @@ package lchannels.examples.sleepingbarber.demo
 object Local extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration._
-  
+
   implicit val timeout = 10.seconds
-  
+
   val customers = List(
-    "Alice", "Bob", "Carol", "Dave", "Erin", "Frank", "George", "Horace",
-    "Isabelle", "John", "Karen", "Louis", "Mark", "Nick", "Oliver", "Paul",
-    "Quentin", "Rebecca", "Sarah", "Thomas", "Ursula", "Valeri", "William",
-    "Xavier", "Yasemin", "Zacharias"
+    "Alice",
+    "Bob",
+    "Carol",
+    "Dave",
+    "Erin",
+    "Frank",
+    "George",
+    "Horace",
+    "Isabelle",
+    "John",
+    "Karen",
+    "Louis",
+    "Mark",
+    "Nick",
+    "Oliver",
+    "Paul",
+    "Quentin",
+    "Rebecca",
+    "Sarah",
+    "Thomas",
+    "Ursula",
+    "Valeri",
+    "William",
+    "Xavier",
+    "Yasemin",
+    "Zacharias"
   )
-  
+
   val maxSeats = 4
-  
+
   val shop = lchannels.examples.sleepingbarber.barbershop.Shop(maxSeats)
-  
+
   val customerObjs = for (name <- customers)
     yield new lchannels.examples.sleepingbarber.customer.Customer(name, shop)
-  
+
   for (c <- customerObjs) c.join()
   println("*** All customers served - shutting down barbershop")
-  
+
   shop.quit()
 }

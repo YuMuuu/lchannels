@@ -37,22 +37,21 @@ import lchannels._
 /////////////////////////////////////////////////////////////////////////////
 sealed abstract class Start
 case class Greet(whom: String)(val cont: Out[Greeting]) extends Start
-case class Quit()                                       extends Start
+case class Quit() extends Start
 
 sealed abstract class Greeting
-case class Hello(who:String)(val cont: Out[Start]) extends Greeting
-case class Bye(who:String)                         extends Greeting
+case class Hello(who: String)(val cont: Out[Start]) extends Greeting
+case class Bye(who: String) extends Greeting
 /////////////////////////////////////////////////////////////////////////////
 
 /** Greeting protocol server. */
-object Server {  
-  def apply(c: In[Start])
-           (implicit timeout: Duration): Unit = {
+object Server {
+  def apply(c: In[Start])(implicit timeout: Duration): Unit = {
     println(f"[S] Awaiting request from ${c}...")
     c ? {
       case m @ Greet(whom) => {
         println(f"[S] Got 'Greet(${whom})', answering Hello")
-        val c2in = m.cont !! Hello(whom)_
+        val c2in = m.cont !! Hello(whom) _
         println("[S] Performing recursion...")
         apply(c2in)
       }
@@ -61,25 +60,23 @@ object Server {
       }
     }
   }
-  
-  def serve(factory: () => (In[Start], Out[Start]))
-           (implicit ctx: ExecutionContext,
-                     timeout: Duration): Out[Start] = {
+
+  def serve(factory: () => (In[Start], Out[Start]))(
+      implicit ctx: ExecutionContext,
+      timeout: Duration): Out[Start] = {
     val (cin, cout) = factory()
     Future { blocking { apply(cin)(timeout) } }
     cout
   }
-  def serve()(implicit ctx: ExecutionContext,
-                       timeout: Duration): Out[Start] = {
+  def serve()(implicit ctx: ExecutionContext, timeout: Duration): Out[Start] = {
     serve(() => LocalChannel.factory())
   }
 }
 
 object Client1 {
-  def apply(c: Out[Start])
-           (implicit timeout: Duration): Unit = {
+  def apply(c: Out[Start])(implicit timeout: Duration): Unit = {
     println("[C1] Sending Greet(\"Jack\")...")
-    val repc = c !! Greet("Jack")_
+    val repc = c !! Greet("Jack") _
     println("[C1] ...done.  Now waiting for answer...")
     repc ? {
       case m @ Hello(who) => {
@@ -95,8 +92,7 @@ object Client1 {
 }
 
 object Client2 {
-  def apply(c: Out[Quit])
-           (implicit timeout: Duration): Unit = {
+  def apply(c: Out[Quit])(implicit timeout: Duration): Unit = {
     println(f"[C2] Sending ${Quit()}")
     c ! Quit()
   }
@@ -112,17 +108,19 @@ object Local extends App {
   import scala.concurrent.duration._
 
   implicit val timeout = 10.seconds
-  
+
   println("[*] Spawning local server and client 1...")
   val (c1, s1) = parallel[Start, Unit, Unit](
-    Server(_), Client1(_)
+    Server(_),
+    Client1(_)
   )
 
   Await.result(s1, 10.seconds) // Wait for server termination
 
   println("\n[*] Spawning local server and client 2...")
   val (c2, s2) = parallel[Quit, Unit, Unit](
-    Server(_), Client2(_)
+    Server(_),
+    Client2(_)
   )
 
   Await.result(s2, 10.seconds) // Wait for server termination
@@ -138,17 +136,21 @@ object Queue extends App {
   import scala.concurrent.duration._
 
   implicit val timeout = 10.seconds
-  
-  println("[*] Spawning local server and client 1 (using queue-based channels)...")
+
+  println(
+    "[*] Spawning local server and client 1 (using queue-based channels)...")
   val (c1, s1) = parallel[Start, Unit, Unit](
-    Server(_), Client1(_)
+    Server(_),
+    Client1(_)
   )
 
   Await.result(s1, 10.seconds) // Wait for server termination
 
-  println("\n[*] Spawning local server and client 2 (using queue-based channels)...")
+  println(
+    "\n[*] Spawning local server and client 2 (using queue-based channels)...")
   val (c2, s2) = parallel[Quit, Unit, Unit](
-    Server(_), Client2(_)
+    Server(_),
+    Client2(_)
   )
 
   Await.result(s2, 10.seconds) // Wait for server termination
@@ -157,36 +159,40 @@ object Queue extends App {
 object StreamClient extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import java.io.{
-    InputStream, OutputStream,
-    BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter
+    InputStream,
+    OutputStream,
+    BufferedReader,
+    BufferedWriter,
+    InputStreamReader,
+    OutputStreamWriter
   }
   import java.net.Socket
-  
+
   import scala.concurrent.ExecutionContext.Implicits.global
   implicit val timeout = 30.seconds
-    
+
   class HelloStreamManager(in: InputStream, out: OutputStream)
-        extends StreamManager(in, out) {  
+      extends StreamManager(in, out) {
     private val outb = new BufferedWriter(new OutputStreamWriter(out))
-    
+
     override def streamer(x: Any) = x match {
       case Greet(name) => outb.write(f"GREET ${name}\n"); outb.flush()
-      case Quit() => outb.write("QUIT\n"); outb.flush(); close() // End
+      case Quit()      => outb.write("QUIT\n"); outb.flush(); close() // End
     }
-    
+
     private val inb = new BufferedReader(new InputStreamReader(in))
     private val helloR = """HELLO (.+)""".r // Matches Hello(name)
-    private val byeR = """BYE (.+)""".r     // Matches Bye(name)
-    
+    private val byeR = """BYE (.+)""".r // Matches Bye(name)
+
     override def destreamer() = inb.readLine() match {
       case helloR(name) => Hello(name)(StreamOut[Start](this))
-      case byeR(name) => close(); Bye(name) // Session end: close streams
-      case e => { close(); throw new Exception(f"Bad message: '${e}'") }
+      case byeR(name)   => close(); Bye(name) // Session end: close streams
+      case e            => { close(); throw new Exception(f"Bad message: '${e}'") }
     }
   }
-  
+
   println("[*] Connecting to 127.0.0.1:1337...")
   val conn = new Socket("127.0.0.1", 1337) // Host & port of greeting server
   val strm = new HelloStreamManager(conn.getInputStream, conn.getOutputStream)
@@ -197,34 +203,36 @@ object StreamClient extends App {
 object SocketClient extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import java.io.{
-    BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter
+    BufferedReader,
+    BufferedWriter,
+    InputStreamReader,
+    OutputStreamWriter
   }
   import java.net.Socket
-  
+
   implicit val timeout = 30.seconds
-    
-  class HelloSocketManager(socket: Socket)
-        extends SocketManager(socket) {  
+
+  class HelloSocketManager(socket: Socket) extends SocketManager(socket) {
     private val outb = new BufferedWriter(new OutputStreamWriter(out))
-    
+
     override def streamer(x: Any) = x match {
       case Greet(name) => outb.write(f"GREET ${name}\n"); outb.flush()
-      case Quit() => outb.write("QUIT\n"); outb.flush(); close() // End
+      case Quit()      => outb.write("QUIT\n"); outb.flush(); close() // End
     }
-    
+
     private val inb = new BufferedReader(new InputStreamReader(in))
     private val helloR = """HELLO (.+)""".r // Matches Hello(name)
-    private val byeR = """BYE (.+)""".r     // Matches Bye(name)
-    
+    private val byeR = """BYE (.+)""".r // Matches Bye(name)
+
     override def destreamer() = inb.readLine() match {
       case helloR(name) => Hello(name)(SocketOut[Start](this))
-      case byeR(name) => close(); Bye(name) // Session end: close streams
-      case e => { close(); throw new Exception(f"Bad message: '${e}'") }
+      case byeR(name)   => close(); Bye(name) // Session end: close streams
+      case e            => { close(); throw new Exception(f"Bad message: '${e}'") }
     }
   }
-  
+
   println("[*] Connecting to 127.0.0.1:1337...")
   val conn = new Socket("127.0.0.1", 1337) // Host & port of greeting server
   val sktm = new HelloSocketManager(conn)
@@ -235,22 +243,23 @@ object SocketClient extends App {
 object ActorServer extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.duration.Duration
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
   import akka.actor.ActorSystem
-  
+
   val config = ConfigFactory.load() // Loads resources/application.conf
   implicit val as = ActorSystem("GreetingServerSys",
-                          config = Some(config.getConfig("GreetingServerSys")),
-                          defaultExecutionContext = Some(global))
-  
+                                config =
+                                  Some(config.getConfig("GreetingServerSys")),
+                                defaultExecutionContext = Some(global))
+
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
-  
+
   implicit val timeout = Duration.Inf
-  
+
   // We give a human-readable name ("greeting") to the server actor
   val (in, out) = ActorChannel.factory[Start]("start");
   println(f"[*] Greeting server listening on: ${out.path}")
@@ -263,21 +272,22 @@ object ActorServer extends App {
 object ActorClient extends App {
   // Helper method to ease external invocation
   def run() = main(Array())
-  
+
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
   import akka.actor.ActorSystem
-  
+
   val config = ConfigFactory.load() // Loads resources/application.conf
   implicit val as = ActorSystem("GreetingClientSys",
-                          config = Some(config.getConfig("GreetingClientSys")),
-                          defaultExecutionContext = Some(global))
-  
+                                config =
+                                  Some(config.getConfig("GreetingClientSys")),
+                                defaultExecutionContext = Some(global))
+
   ActorChannel.setDefaultEC(global)
   ActorChannel.setDefaultAS(as)
-  
+
   implicit val timeout = 10.seconds
-  
+
   val serverPath = "akka.tcp://GreetingServerSys@127.0.0.1:31337/user/start"
   println(f"[*] Connecting to ${serverPath}...")
   val c = ActorOut[Start](serverPath)

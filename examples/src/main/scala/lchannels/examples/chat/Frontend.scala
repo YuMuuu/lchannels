@@ -37,7 +37,9 @@ import com.typesafe.scalalogging.StrictLogging
 
 import lchannels.examples.chat.protocol.public._
 import lchannels.examples.chat.protocol.internal.session.{
-  GetSession => IntGetSession, Success => IntSuccess, Failure => IntFailure
+  GetSession => IntGetSession,
+  Success => IntSuccess,
+  Failure => IntFailure
 }
 import lchannels.examples.chat.protocol.internal.auth.{
   GetAuthentication => IntGetAuth
@@ -46,25 +48,26 @@ import lchannels.examples.chat.protocol.internal.auth.{
 /** Chat server frontend */
 class Frontend(sessionSrv: Out[IntGetSession],
                authSrv: Out[IntGetAuth],
-               factory: () => (In[GetSession], Out[GetSession]))
-              (implicit ec: ExecutionContext,
-                        timeout: Duration)
-    extends Runnable with StrictLogging {
+               factory: () => (In[GetSession], Out[GetSession]))(
+    implicit ec: ExecutionContext,
+    timeout: Duration)
+    extends Runnable
+    with StrictLogging {
   import scala.concurrent.Channel
-  
+
   private def logTrace(msg: String) = logger.trace(f"${msg}")
   private def logDebug(msg: String) = logger.debug(f"${msg}")
   private def logInfo(msg: String) = logger.info(f"${msg}")
   private def logWarn(msg: String) = logger.warn(f"${msg}")
   private def logError(msg: String) = logger.error(f"${msg}")
-  
+
   // FIFO queue with requests from clients
   private val requests: Channel[GetSession] = new Channel()
-  
+
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
   def quit() = thread.interrupt()
-  
+
   /** Return a channel for interacting with the frontend. */
   def connect(): Out[GetSession] = {
     logDebug("new client connection")
@@ -72,7 +75,7 @@ class Frontend(sessionSrv: Out[IntGetSession],
     in.future.onComplete(queueRequest) // Async. add request to FIFO
     out
   }
-  
+
   private def queueRequest(req: Try[GetSession]): Unit = req match {
     case Success(r) => {
       logDebug(f"queueing ${r}")
@@ -80,19 +83,19 @@ class Frontend(sessionSrv: Out[IntGetSession],
     }
     case Failure(e) => logDebug("got failure, not enqueuing")
   }
-  
+
   override def run(): Unit = {
     logDebug("started")
     serverLoop(sessionSrv, authSrv)
     logDebug("quitting")
   }
-  
+
   @tailrec
-  private def serverLoop(sessionSrv: Out[IntGetSession],
-                         authSrv: Out[IntGetAuth])
-                        (implicit timeout: Duration): Unit = {
+  private def serverLoop(
+      sessionSrv: Out[IntGetSession],
+      authSrv: Out[IntGetAuth])(implicit timeout: Duration): Unit = {
     var req: GetSession = null
-    
+
     try {
       req = requests.read
     } catch {
@@ -101,19 +104,18 @@ class Frontend(sessionSrv: Out[IntGetSession],
         return
       }
     }
-    
+
     logDebug(f"dequeuing ${req}, now serving")
     val (sessionSrv2, authSrv2) = serve(req, sessionSrv, authSrv)
     serverLoop(sessionSrv2, authSrv2)
   }
-  
+
   private def serve(req: GetSession,
                     sessionSrv: Out[IntGetSession],
-                    authSrv: Out[IntGetAuth])
-                   (implicit timeout: Duration): (Out[IntGetSession],
-                                                  Out[IntGetAuth]) = {
+                    authSrv: Out[IntGetAuth])(
+      implicit timeout: Duration): (Out[IntGetSession], Out[IntGetAuth]) = {
     logDebug(f"trying to retrieve active session")
-    (sessionSrv !! IntGetSession(req.id)_) ? {
+    (sessionSrv !! IntGetSession(req.id) _) ? {
       case ssrv @ IntSuccess(sessc) => {
         logDebug(f"got active session channel, forwarding to client")
         req.cont ! Active(sessc)
@@ -121,7 +123,7 @@ class Frontend(sessionSrv: Out[IntGetSession],
       }
       case ssrv @ IntFailure() => {
         logDebug(f"no active session, getting authentication channel")
-        (authSrv !! IntGetAuth()_) ? { auth =>
+        (authSrv !! IntGetAuth() _) ? { auth =>
           logDebug(f"forwarding authentication channel to client")
           req.cont ! New(auth.channel)
           (ssrv.cont, auth.cont)

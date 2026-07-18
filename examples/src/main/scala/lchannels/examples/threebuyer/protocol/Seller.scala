@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Multiparty protocol classes for role Seller in three-buyer example.
- *  The classes in this package have been automatically generated from the
- *  multiparty game protocol:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  multiparty game protocol:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.threebuyer.protocol.seller
 
 import scala.concurrent.duration.Duration
@@ -72,7 +72,7 @@ case class MPQuoteA(alice: Out[binary.QuoteA], bob: Out[binary.QuoteB]) {
 
 case class MPQuoteB(alice: Unit, bob: Out[binary.QuoteB]) {
   def send(v: QuoteB) = {
-    val cnt = bob !! binary.QuoteB(v.p)_
+    val cnt = bob !! binary.QuoteB(v.p) _
     MPOkSOrQuitS(alice, cnt)
   }
 }

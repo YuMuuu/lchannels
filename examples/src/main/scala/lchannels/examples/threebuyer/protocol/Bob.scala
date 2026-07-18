@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Multiparty protocol classes for role Bob in three-buyer example.
- *  The classes in this package have been automatically generated from the
- *  multiparty game protocol:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  multiparty game protocol:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/ThreeBuyer.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.threebuyer.protocol.bob
 
 import scala.concurrent.duration.Duration
@@ -84,7 +84,8 @@ case class MPShareA(alice: In[binary.ShareA], seller: Out[binary.OkSOrQuitS]) {
   }
 }
 
-case class MPOkAOrQuitA(alice: Out[binary.OkAOrQuitA], seller: Out[binary.OkSOrQuitS]) {
+case class MPOkAOrQuitA(alice: Out[binary.OkAOrQuitA],
+                        seller: Out[binary.OkSOrQuitS]) {
   def send(v: OkA) = {
     val cnt = alice ! binary.OkA(v.p)
     MPOkS(cnt, seller)
@@ -97,14 +98,14 @@ case class MPOkAOrQuitA(alice: Out[binary.OkAOrQuitA], seller: Out[binary.OkSOrQ
 
 case class MPOkS(alice: Unit, seller: Out[binary.OkSOrQuitS]) {
   def send(v: OkS) = {
-    val cnt = seller !! binary.OkS(v.p)_
+    val cnt = seller !! binary.OkS(v.p) _
     MPAddress(alice, cnt)
   }
 }
 
 case class MPAddress(alice: Unit, seller: Out[binary.Address]) {
   def send(v: Address) = {
-    val cnt = seller !! binary.Address(v.p)_
+    val cnt = seller !! binary.Address(v.p) _
     MPDeliver(alice, cnt)
   }
 }
@@ -141,14 +142,14 @@ case class Delegate(p: MPOkAOrQuitA)
 // Multiparty session classes
 case class MPContrib(carol: Out[binary.Contrib]) {
   def send(v: Contrib) = {
-    val cnt = carol !! binary.Contrib(v.p)_
+    val cnt = carol !! binary.Contrib(v.p) _
     MPDelegate(cnt)
   }
 }
 
 case class MPDelegate(carol: Out[binary.Delegate]) {
   def send(v: Delegate) = {
-    val cnt = carol !! binary.Delegate(v.p)_
+    val cnt = carol !! binary.Delegate(v.p) _
     MPOkCOrQuitC(cnt)
   }
 }

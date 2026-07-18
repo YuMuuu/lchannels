@@ -25,11 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /** Multiparty protocol classes for game player C.
- *  The classes in this package have been automatically generated from the
- *  multiparty game protocol:
- *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
- *  
- * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
+  *  The classes in this package have been automatically generated from the
+  *  multiparty game protocol:
+  *  https://github.com/alcestes/scribble-java/blob/linear-channels/modules/linmp-scala/src/test/scrib/Game.scr
+  *
+  * @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels.examples.game.protocol.c
 
 import scala.concurrent.duration.Duration
@@ -41,7 +41,8 @@ case class PlayC(p: MPInfoBC)
 case class InfoBC(p: String, cont: MPInfoCA)
 sealed abstract class MsgMPMov1BCOrMov2BC
 case class Mov1BC(p: Int, cont: MPMov1CAOrMov2CA) extends MsgMPMov1BCOrMov2BC
-case class Mov2BC(p: Boolean, cont: MPMov1CAOrMov2CA) extends MsgMPMov1BCOrMov2BC
+case class Mov2BC(p: Boolean, cont: MPMov1CAOrMov2CA)
+    extends MsgMPMov1BCOrMov2BC
 
 // Output message types for multiparty sessions
 case class InfoCA(p: String)
@@ -69,11 +70,12 @@ case class MPInfoBC(a: Out[binary.InfoCA], b: In[binary.InfoBC]) {
 }
 case class MPInfoCA(a: Out[binary.InfoCA], b: In[binary.Mov1BCOrMov2BC]) {
   def send(v: InfoCA) = {
-    val cnt = a !! binary.InfoCA(v.p)_
+    val cnt = a !! binary.InfoCA(v.p) _
     MPMov1BCOrMov2BC(cnt, b)
   }
 }
-case class MPMov1BCOrMov2BC(a: Out[binary.Mov1CAOrMov2CA], b: In[binary.Mov1BCOrMov2BC]) {
+case class MPMov1BCOrMov2BC(a: Out[binary.Mov1CAOrMov2CA],
+                            b: In[binary.Mov1BCOrMov2BC]) {
   def receive(implicit timeout: Duration = Duration.Inf) = {
     b.receive(timeout) match {
       case m @ binary.Mov1BC(p) => {
@@ -85,13 +87,14 @@ case class MPMov1BCOrMov2BC(a: Out[binary.Mov1CAOrMov2CA], b: In[binary.Mov1BCOr
     }
   }
 }
-case class MPMov1CAOrMov2CA(a: Out[binary.Mov1CAOrMov2CA], b: In[binary.Mov1BCOrMov2BC]) {
+case class MPMov1CAOrMov2CA(a: Out[binary.Mov1CAOrMov2CA],
+                            b: In[binary.Mov1BCOrMov2BC]) {
   def send(v: Mov1CA) = {
-    val cnt = a !! binary.Mov1CA(v.p)_
+    val cnt = a !! binary.Mov1CA(v.p) _
     MPMov1BCOrMov2BC(cnt, b)
   }
   def send(v: Mov2CA) = {
-    val cnt = a !! binary.Mov2CA(v.p)_
+    val cnt = a !! binary.Mov2CA(v.p) _
     MPMov1BCOrMov2BC(cnt, b)
   }
 }
