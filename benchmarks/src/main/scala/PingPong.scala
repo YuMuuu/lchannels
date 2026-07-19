@@ -27,7 +27,9 @@
 package lchannels.benchmarks.pingpong
 
 import lchannels._
-import scala.concurrent.{Await, blocking, Promise, Future}
+import org.apache.pekko.actor.typed.{ActorSystem, SpawnProtocol}
+
+import scala.concurrent.{Await, Future, Promise, blocking}
 import scala.concurrent.duration.Duration
 
 /** lchannels-based implementation (medium-independent). */
@@ -88,7 +90,7 @@ object PromiseFutureImpl {
     // Update timestamp if not yet set, thus registering actual start time
     val ts2 = if (ts == 0) System.nanoTime() else ts
     if (n > 0) {
-      val p2 = Promise[Pong]; val f2 = p2.future
+      val p2 = Promise[Pong](); val f2 = p2.future
       p.success(Ping(msg)(p2))
       val pong = Await.result(f2, d)
       pinger(pong.cont, msg, ts2, n - 1)
@@ -102,7 +104,7 @@ object PromiseFutureImpl {
   def ponger(f: Future[Request])(implicit d: Duration): Long = {
     Await.result(f, d) match {
       case ping @ Ping(msg) => {
-        val p2 = Promise[Request]; val f2 = p2.future
+        val p2 = Promise[Request](); val f2 = p2.future
         ping.cont.success(Pong(msg)(p2))
         ponger(f2)
       }
@@ -113,7 +115,7 @@ object PromiseFutureImpl {
 
 /** Scala Channel-based implementation. */
 object ScalaChannelsImpl {
-  import scala.concurrent.Channel
+  import java.util.concurrent.LinkedTransferQueue
 
   sealed abstract class Request
   case class Ping(msg: String) extends Request
@@ -123,8 +125,8 @@ object ScalaChannelsImpl {
 
   @scala.annotation.tailrec
   def pinger(
-      in: Channel[Pong],
-      out: Channel[Request],
+      in: LinkedTransferQueue[Pong],
+      out: LinkedTransferQueue[Request],
       msg: String,
       ts: Long,
       n: Int
@@ -132,19 +134,22 @@ object ScalaChannelsImpl {
     // Update timestamp if not yet set, thus registering actual start time
     val ts2 = if (ts == 0) System.nanoTime() else ts
     if (n > 0) {
-      out.write(Ping(msg))
-      in.read
+      out.put(Ping(msg))
+      in.take()
       pinger(in, out, msg, ts2, n - 1)
     } else {
-      out.write(Stop())
+      out.put(Stop())
       ts2
     }
   }
 
   @scala.annotation.tailrec
-  def ponger(in: Channel[Request], out: Channel[Pong]): Long = {
-    in.read match {
-      case Ping(msg) => out.write(Pong(msg)); ponger(in, out)
+  def ponger(
+      in: LinkedTransferQueue[Request],
+      out: LinkedTransferQueue[Pong]
+  ): Long = {
+    in.take() match {
+      case Ping(msg) => out.put(Pong(msg)); ponger(in, out)
       case Stop()    => System.nanoTime()
     }
   }
@@ -193,7 +198,6 @@ object JavaBlockingQueuesImpl {
 object PekkoTypedImpl {
   import org.apache.pekko.actor.typed.{ActorRef, Behavior}
   import org.apache.pekko.actor.typed.scaladsl.Behaviors
-  import org.apache.pekko.actor.typed.scaladsl.adapter._
 
   sealed abstract class Request
   case class Ping(msg: String, replyTo: ActorRef[Pong]) extends Request
@@ -261,30 +265,31 @@ object PekkoTypedImpl {
       }
     }
 
-  def benchmark(msg: String, exchanges: Int, maxDuration: Duration)(implicit
-      as: org.apache.pekko.actor.ActorSystem
+  def benchmark[S](msg: String, exchanges: Int, maxDuration: Duration)(implicit
+      as: ActorSystem[S]
   ): Long = {
     benchmarkImpl(msg, exchanges, maxDuration, pingerBeh, pongerBeh)
   }
 
-  def benchmarkOpt(msg: String, exchanges: Int, maxDuration: Duration)(implicit
-      as: org.apache.pekko.actor.ActorSystem
+  def benchmarkOpt[S](msg: String, exchanges: Int, maxDuration: Duration)(
+      implicit as: ActorSystem[S]
   ): Long = {
     benchmarkImpl(msg, exchanges, maxDuration, pingerBehOpt, pongerBehOpt)
   }
 
-  private def benchmarkImpl(
+  private def benchmarkImpl[S](
       msg: String,
       exchanges: Int,
       maxDuration: Duration,
       pingerB: (String, Int) => Behavior[Pong],
       pongerB: Promise[Long] => Behavior[Request]
-  )(implicit as: org.apache.pekko.actor.ActorSystem): Long = {
-    val endTS = Promise[Long]
+  )(implicit as: ActorSystem[S]): Long = {
+    val endTS = Promise[Long]()
+    val id = System.nanoTime().toString
 
     // We will send the first Ping
-    val pingRef = as.spawnAnonymous(pingerB(msg, exchanges - 1))
-    val pongRef = as.spawnAnonymous(pongerB(endTS))
+    val pingRef = as.systemActorOf(pingerB(msg, exchanges - 1), s"pinger-${id}")
+    val pongRef = as.systemActorOf(pongerB(endTS), s"ponger-${id}")
 
     val startTS = System.nanoTime()
     pongRef ! Ping(msg, pingRef)
@@ -309,8 +314,15 @@ object Benchmark {
 
     case class Bench(title: String, f: () => Long, results: MBuffer[Long])
 
-    implicit val as = org.apache.pekko.actor
-      .ActorSystem("PingPongBenchmark", defaultExecutionContext = Some(global))
+    implicit val as: ActorSystem[
+      SpawnProtocol.Command
+    ] =
+      org.apache.pekko.actor.typed
+        .ActorSystem[SpawnProtocol.Command](
+          SpawnProtocol(),
+          "PingPongBenchmark"
+        )
+    implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
     // implicit val timeout: FiniteDuration = 5.seconds
     implicit val timeout: Duration = Duration.Inf
@@ -383,7 +395,7 @@ object Benchmark {
       ),
       Bench(
         "lchannels (actors)",
-        () => lBench(ActorChannel.parallel, msg, exchanges, maxWait),
+        () => lBench(runtime.parallel, msg, exchanges, maxWait),
         MBuffer()
       )
       // Bench("Pekko Typed",
@@ -407,7 +419,7 @@ object Benchmark {
     println(" (Done)")
 
     // Cleanup and hut down the actor system
-    ActorChannel.cleanup()
+    runtime.cleanup()
     as.terminate()
 
     for (b <- benchmarks) yield BenchmarkResult(b.title, b.results.iterator)
@@ -434,7 +446,7 @@ object Benchmark {
   private def pfBench(msg: String, exchanges: Int, maxWait: Duration)(implicit
       d: Duration
   ): Long = {
-    val p = Promise[PromiseFutureImpl.Request]; val f = p.future
+    val p = Promise[PromiseFutureImpl.Request](); val f = p.future
 
     val ping = Future {
       blocking { PromiseFutureImpl.pinger(p, msg, 0, exchanges) }
@@ -449,11 +461,11 @@ object Benchmark {
   }
 
   private def scBench(msg: String, exchanges: Int, maxWait: Duration): Long = {
-    import scala.concurrent.Channel
+    import java.util.concurrent.LinkedTransferQueue
     import ScalaChannelsImpl.{Request, Pong, pinger, ponger}
 
-    val c1 = new Channel[Pong]()
-    val c2 = new Channel[Request]()
+    val c1 = new LinkedTransferQueue[Pong]()
+    val c2 = new LinkedTransferQueue[Request]()
 
     val ping = Future { blocking { pinger(c1, c2, msg, 0, exchanges) } }
     val pong = Future { blocking { ponger(c2, c1) } }

@@ -76,9 +76,9 @@ class Server(
     //       come up with a "reasonable" value for "..." that is accepted by
     //       the Scala compiler.  E.g., the following is accepted, but
     //       is visibly bogus:   ca !! ((_:In[Int]) => null)
-    val (abi, abo) = ca.create[binary.InfoAB]
-    val (bci, bco) = cb.create[binary.InfoBC]
-    val (cai, cao) = cc.create[binary.InfoCA]
+    val (abi, abo) = ca.create[binary.InfoAB]()
+    val (bci, bco) = cb.create[binary.InfoBC]()
+    val (cai, cao) = cc.create[binary.InfoCA]()
 
     // We now instantiate multiparty session objects (i.e., n-uples of
     // binary linear channels), and send them to our clients via channels
@@ -104,24 +104,25 @@ object Actor extends App {
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import org.apache.pekko.actor.ActorSystem
+  import org.apache.pekko.actor.typed.ActorSystem
+  import org.apache.pekko.actor.typed.SpawnProtocol
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as: ActorSystem = ActorSystem(
-    "GameServerSys",
-    config = Some(config.getConfig("GameServerSys")),
-    defaultExecutionContext = Some(global)
-  )
+  implicit val as: ActorSystem[SpawnProtocol.Command] =
+    ActorSystem[SpawnProtocol.Command](
+      SpawnProtocol(),
+      "GameServerSys",
+      config.getConfig("GameServerSys")
+    )
 
-  ActorChannel.setDefaultEC(global)
-  ActorChannel.setDefaultAS(as)
+  implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
   implicit val timeout: FiniteDuration = 120.seconds
 
   // We give a human-readable name to the connection endpoints
-  val (ai, ao) = ActorChannel.factory[binary.actor.ConnectA]("a");
-  val (bi, bo) = ActorChannel.factory[binary.actor.ConnectB]("b");
-  val (ci, co) = ActorChannel.factory[binary.actor.ConnectC]("c");
+  val (ai, ao) = runtime.factory[binary.actor.ConnectA]("a");
+  val (bi, bo) = runtime.factory[binary.actor.ConnectB]("b");
+  val (ci, co) = runtime.factory[binary.actor.ConnectC]("c");
   println(
     s"[*] Waiting connections on: ${ao.path.toString}, ${bo.path.toString}, ${co.path.toString}"
   )
@@ -140,6 +141,6 @@ object Actor extends App {
   Thread.sleep(10000)
   println(s"[*] Quitting")
   // Cleanup and hut down the actor system
-  ActorChannel.cleanup()
+  runtime.cleanup()
   as.terminate()
 }

@@ -27,7 +27,9 @@
 package lchannels.benchmarks.ring
 
 import lchannels._
-import scala.concurrent.{Await, blocking, Promise, Future}
+import org.apache.pekko.actor.typed._
+
+import scala.concurrent.{Await, Future, Promise, blocking}
 import scala.concurrent.duration.Duration
 import scala.collection.mutable.{Buffer => MBuffer}
 
@@ -118,7 +120,7 @@ object PromiseFutureImpl {
     Await.result(in, d) match {
       case Stop()         => out.success(Stop())
       case Fwd(msg, cont) => {
-        val p = Promise[Command]; val f = p.future
+        val p = Promise[Command](); val f = p.future
         out.success(Fwd(msg, f))
         forwarder(cont, p)
       }
@@ -135,7 +137,7 @@ object PromiseFutureImpl {
   )(implicit d: Duration): Long = {
     val ts2 = if (ts == 0) System.nanoTime() else ts
     if (n > 0) {
-      val p = Promise[Command]; val f = p.future
+      val p = Promise[Command](); val f = p.future
       out.success(Fwd(msg, f))
       Await.result(in, d) match {
         case Stop() => throw new RuntimeException("BUG in ring benchmark!")
@@ -165,7 +167,7 @@ object PromiseFutureImpl {
     val ts2 = if (ts == 0) System.nanoTime() else ts
 
     if (sent < msgCount) {
-      val cout = Promise[Command]; val cin = cout.future
+      val cout = Promise[Command](); val cin = cout.future
       out.success(Fwd(msg, cin))
       masterStream(in, cout, msg, ts2, msgCount, sent + 1, recvd)
     } else if (recvd < msgCount) {
@@ -187,18 +189,21 @@ object PromiseFutureImpl {
 
 /** Scala Channel-based implementation */
 object ScalaChannelsImpl {
-  import scala.concurrent.Channel
+  import java.util.concurrent.LinkedTransferQueue
 
   sealed abstract class Command
   case class Fwd(msg: String) extends Command
   case class Stop() extends Command
 
   @scala.annotation.tailrec
-  def forwarder(in: Channel[Command], out: Channel[Command]): Unit = {
-    in.read match {
-      case Stop()   => out.write(Stop())
+  def forwarder(
+      in: LinkedTransferQueue[Command],
+      out: LinkedTransferQueue[Command]
+  ): Unit = {
+    in.take() match {
+      case Stop()   => out.put(Stop())
       case Fwd(msg) => {
-        out.write(Fwd(msg))
+        out.put(Fwd(msg))
         forwarder(in, out)
       }
     }
@@ -206,24 +211,24 @@ object ScalaChannelsImpl {
 
   @scala.annotation.tailrec
   def master(
-      in: Channel[Command],
-      out: Channel[Command],
+      in: LinkedTransferQueue[Command],
+      out: LinkedTransferQueue[Command],
       msg: String,
       ts: Long,
       n: Int
   ): Long = {
     val ts2 = if (ts == 0) System.nanoTime() else ts
     if (n > 0) {
-      out.write(Fwd(msg))
-      in.read match {
+      out.put(Fwd(msg))
+      in.take() match {
         case Stop() => throw new RuntimeException("BUG in ring benchmark!")
         case Fwd(_) => {
           master(in, out, msg, ts2, n - 1)
         }
       }
     } else {
-      out.write(Stop())
-      in.read match {
+      out.put(Stop())
+      in.take() match {
         case Stop() => System.nanoTime() - ts2
         case Fwd(_) => throw new RuntimeException("BUG in ring benchmark!")
       }
@@ -232,8 +237,8 @@ object ScalaChannelsImpl {
 
   @scala.annotation.tailrec
   def masterStream(
-      in: Channel[Command],
-      out: Channel[Command],
+      in: LinkedTransferQueue[Command],
+      out: LinkedTransferQueue[Command],
       msg: String,
       ts: Long,
       msgCount: Int,
@@ -243,18 +248,18 @@ object ScalaChannelsImpl {
     val ts2 = if (ts == 0) System.nanoTime() else ts
 
     if (sent < msgCount) {
-      out.write(Fwd(msg))
+      out.put(Fwd(msg))
       masterStream(in, out, msg, ts2, msgCount, sent + 1, recvd)
     } else if (recvd < msgCount) {
-      in.read match {
+      in.take() match {
         case Fwd(_) => {
           masterStream(in, out, msg, ts2, msgCount, sent, recvd + 1)
         }
         case Stop() => throw new RuntimeException("BUG in ring benchmark!")
       }
     } else {
-      out.write(Stop())
-      in.read match {
+      out.put(Stop())
+      in.take() match {
         case Fwd(_) => throw new RuntimeException("BUG in ring benchmark!")
         case Stop() => System.nanoTime() - ts2
       }
@@ -346,7 +351,6 @@ object JavaBlockingQueuesImpl {
 object PekkoTypedImpl {
   import org.apache.pekko.actor.typed.{ActorRef, Behavior}
   import org.apache.pekko.actor.typed.scaladsl.Behaviors
-  import org.apache.pekko.actor.typed.scaladsl.adapter._
 
   sealed abstract class Command
   case class Fwd(msg: String) extends Command
@@ -386,25 +390,32 @@ object PekkoTypedImpl {
       }
     }
 
-  def benchmark(
+  def benchmark[S](
       msg: String,
       exchanges: Int,
       ringSize: Int,
       maxDuration: Duration
-  )(implicit as: org.apache.pekko.actor.ActorSystem): Long = {
+  )(implicit as: ActorSystem[S]): Long = {
 
     implicit val timeout: Duration = Duration.Inf
 
-    val endTS = Promise[Long]
-    val fwdToP = Promise[ActorRef[Command]]
+    val endTS = Promise[Long]()
+    val fwdToP = Promise[ActorRef[Command]]()
+    val id = System.nanoTime().toString
 
     val masterRef =
-      as.spawnAnonymous(masterBeh(fwdToP.future, exchanges, endTS))
+      as.systemActorOf(
+        masterBeh(fwdToP.future, exchanges, endTS),
+        s"ring-master-${id}"
+      )
 
     val forwarderRefs = MBuffer[ActorRef[Command]](masterRef)
 
     for (j <- 1 until ringSize) {
-      val r = as.spawnAnonymous(forwarderBeh(forwarderRefs(j - 1)))
+      val r = as.systemActorOf(
+        forwarderBeh(forwarderRefs(j - 1)),
+        s"ring-forwarder-${id}-${j.toString}"
+      )
       forwarderRefs += r
     }
 
@@ -450,8 +461,14 @@ object Benchmark {
     import scala.collection.mutable.{Buffer => MBuffer}
     case class Bench(title: String, f: () => Long, results: MBuffer[Long])
 
-    implicit val as = org.apache.pekko.actor
-      .ActorSystem("RingBenchmark", defaultExecutionContext = Some(global))
+    implicit val as: ActorSystem[
+      SpawnProtocol.Command
+    ] =
+      ActorSystem[SpawnProtocol.Command](
+          SpawnProtocol(),
+          "RingBenchmark"
+        )
+    implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
     implicit val timeout: FiniteDuration = 3600.seconds
     val maxWait = 3600.seconds
@@ -535,7 +552,7 @@ object Benchmark {
         () =>
           lBenchmark(
             which,
-            () => ActorChannel.factory(),
+            () => runtime.factory(),
             msg,
             loops,
             ringSize,
@@ -561,7 +578,7 @@ object Benchmark {
     println(" (Done)")
 
     // Cleanup and hut down the actor system
-    ActorChannel.cleanup()
+    runtime.cleanup()
     as.terminate()
 
     for (b <- benchmarks) yield BenchmarkResult(b.title, b.results.iterator)
@@ -620,7 +637,7 @@ object Benchmark {
       maxWait: Duration
   )(implicit d: Duration): Long = {
     val channels = for (j <- 0 until ringSize) yield {
-      val p = Promise[PromiseFutureImpl.Command]; val f = p.future
+      val p = Promise[PromiseFutureImpl.Command](); val f = p.future
       (f, p)
     }
     for (j <- 0 until ringSize - 1) {
@@ -666,10 +683,10 @@ object Benchmark {
       ringSize: Int,
       maxWait: Duration
   )(implicit d: Duration): Long = {
-    import scala.concurrent.Channel
+    import java.util.concurrent.LinkedTransferQueue
 
     val channels = for (j <- 0 until ringSize) yield {
-      new Channel[ScalaChannelsImpl.Command]
+      new LinkedTransferQueue[ScalaChannelsImpl.Command]()
     }
     for (j <- 0 until ringSize - 1) {
       new Thread(

@@ -33,6 +33,8 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.util.{Try, Success, Failure}
 
+import java.util.concurrent.LinkedTransferQueue
+
 import com.typesafe.scalalogging.StrictLogging
 
 import lchannels.examples.chat.protocol.public._
@@ -53,8 +55,6 @@ class Frontend(
 )(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
-  import scala.concurrent.Channel
-
   private def logTrace(msg: String) = logger.trace(s"${msg.toString}")
   private def logDebug(msg: String) = logger.debug(s"${msg.toString}")
   private def logInfo(msg: String) = logger.info(s"${msg.toString}")
@@ -62,7 +62,7 @@ class Frontend(
   private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   // FIFO queue with requests from clients
-  private val requests: Channel[GetSession] = new Channel()
+  private val requests = new LinkedTransferQueue[GetSession]()
 
   // Own thread
   private val thread = { val t = new Thread(this); t.start(); t }
@@ -79,7 +79,7 @@ class Frontend(
   private def queueRequest(req: Try[GetSession]): Unit = req match {
     case Success(r) => {
       logDebug(s"queueing ${r.toString}")
-      requests.write(r)
+      requests.put(r)
     }
     case Failure(e) => logDebug("got failure, not enqueuing")
   }
@@ -96,7 +96,7 @@ class Frontend(
       authSrv: Out[IntGetAuth]
   )(implicit timeout: Duration): Unit = {
     val req = try {
-      Some(requests.read)
+      Some(requests.take())
     } catch {
       case _: InterruptedException => {
         logDebug("interrupted, leaving main loop")

@@ -84,7 +84,7 @@ class Alice(s: In[binary.PlayAlice])(implicit timeout: Duration)
       println(s"    ${k.toString} - ${c._1.toString} (${c._2.toString})")
     }
     print("> ")
-    val choice = scala.io.StdIn.readInt
+    val choice = scala.io.StdIn.readInt()
     if (choice >= 1 && choice <= 3) {
       choices(choice)._1
     } else {
@@ -101,23 +101,25 @@ object Actor extends App {
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import org.apache.pekko.actor.ActorSystem
+  import org.apache.pekko.actor.typed.ActorSystem
+  import org.apache.pekko.actor.typed.SpawnProtocol
 
   import binary.actor.ConnectAlice
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as: ActorSystem = ActorSystem(
-    "ThreeBuyerAliceSys",
-    config = Some(config.getConfig("ThreeBuyerAliceSys")),
-    defaultExecutionContext = Some(global)
-  )
+  implicit val as: ActorSystem[SpawnProtocol.Command] =
+    ActorSystem[SpawnProtocol.Command](
+      SpawnProtocol(),
+      "ThreeBuyerAliceSys",
+      config.getConfig("ThreeBuyerAliceSys")
+    )
 
-  ActorChannel.setDefaultEC(global)
-  ActorChannel.setDefaultAS(as)
+  implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
   implicit val timeout: FiniteDuration = 60.seconds
 
-  val sellerPath = "pekko://ThreeBuyerSellerSys@127.0.0.1:31350/user/alice"
+  val sellerPath =
+    "pekko://ThreeBuyerSellerSys@127.0.0.1:31350/user/lchannels/alice"
   println(s"[*] Connecting to ${sellerPath.toString}...")
   val c: Out[ConnectAlice] = ActorOut[ConnectAlice](sellerPath)
   val c2 = c !! ConnectAlice() _

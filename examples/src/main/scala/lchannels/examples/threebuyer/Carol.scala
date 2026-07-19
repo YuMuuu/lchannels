@@ -104,22 +104,23 @@ object Actor extends App {
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import org.apache.pekko.actor.ActorSystem
+  import org.apache.pekko.actor.typed.ActorSystem
+  import org.apache.pekko.actor.typed.SpawnProtocol
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as: ActorSystem = ActorSystem(
-    "ThreeBuyerCarolSys",
-    config = Some(config.getConfig("ThreeBuyerCarolSys")),
-    defaultExecutionContext = Some(global)
-  )
+  implicit val as: ActorSystem[SpawnProtocol.Command] =
+    ActorSystem[SpawnProtocol.Command](
+      SpawnProtocol(),
+      "ThreeBuyerCarolSys",
+      config.getConfig("ThreeBuyerCarolSys")
+    )
 
-  ActorChannel.setDefaultEC(global)
-  ActorChannel.setDefaultAS(as)
+  implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
   implicit val timeout: FiniteDuration = 120.seconds
 
   // We give a human-readable name to the connection endpoints
-  val (bi, bo) = ActorChannel.factory[binary.actor.ConnectCarol]("bob");
+  val (bi, bo) = runtime.factory[binary.actor.ConnectCarol]("bob");
   println(s"[*] Waiting Bob's connections on: ${bo.path.toString}")
 
   def connector = {

@@ -83,7 +83,7 @@ abstract class StreamManager(in: InputStream, out: OutputStream) {
   def close(): Unit = { in.close(); out.close() }
 
   /** Alias for [[close]]. */
-  final override def finalize() = close()
+  final override def finalize(): Unit = close()
 
   /** Create a pair of I/O stream-based channel endpoints, reading from `in` and
     * writing to `out`.
@@ -104,11 +104,11 @@ abstract class StreamManager(in: InputStream, out: OutputStream) {
 protected[lchannels] class StreamIn[T](strm: StreamManager)(implicit
     ec: ExecutionContext
 ) extends medium.In[Stream, T] {
-  override def receive() = {
+  override def receive(): T = {
     strm.destreamer().asInstanceOf[T]
   }
 
-  override def receive(implicit atMost: Duration) = {
+  override def receive(implicit atMost: Duration): T = {
     strm.destreamer(atMost).asInstanceOf[T]
   }
 }
@@ -123,7 +123,7 @@ object StreamIn {
     * @param ec
     *   Execution context for internal `Promise`/`Future` handling
     */
-  def apply[T](strm: StreamManager)(implicit ec: ExecutionContext) = {
+  def apply[T](strm: StreamManager)(implicit ec: ExecutionContext): StreamIn[T] = {
     new StreamIn[T](strm)
   }
 }
@@ -133,9 +133,9 @@ object StreamIn {
   */
 class StreamOut[-T](strm: StreamManager)(implicit ec: ExecutionContext)
     extends medium.Out[Stream, T] {
-  override def send(x: T) = strm.streamer(x)
+  override def send(x: T): Unit = strm.streamer(x)
 
-  override def create[U]() = strm.factory()
+  override def create[U](): (StreamIn[U], StreamOut[U]) = strm.factory()
 }
 
 /** Stream-based output channel endpoint. */
@@ -148,7 +148,7 @@ object StreamOut {
     * @param ec
     *   Execution context for internal `Promise`/`Future` handling
     */
-  def apply[T](strm: StreamManager)(implicit ec: ExecutionContext) = {
+  def apply[T](strm: StreamManager)(implicit ec: ExecutionContext): StreamOut[T] = {
     new StreamOut[T](strm)
   }
 }

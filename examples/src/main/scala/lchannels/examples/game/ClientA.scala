@@ -113,23 +113,24 @@ object Actor extends App {
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import org.apache.pekko.actor.ActorSystem
+  import org.apache.pekko.actor.typed.ActorSystem
+  import org.apache.pekko.actor.typed.SpawnProtocol
 
   import binary.actor.{ConnectA => Connect}
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as: ActorSystem = ActorSystem(
-    "GameClientASys",
-    config = Some(config.getConfig("GameClientASys")),
-    defaultExecutionContext = Some(global)
-  )
+  implicit val as: ActorSystem[SpawnProtocol.Command] =
+    ActorSystem[SpawnProtocol.Command](
+      SpawnProtocol(),
+      "GameClientASys",
+      config.getConfig("GameClientASys")
+    )
 
-  ActorChannel.setDefaultEC(global)
-  ActorChannel.setDefaultAS(as)
+  implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
   implicit val timeout: FiniteDuration = 60.seconds
 
-  val serverPath = "pekko://GameServerSys@127.0.0.1:31340/user/a"
+  val serverPath = "pekko://GameServerSys@127.0.0.1:31340/user/lchannels/a"
   println(s"[*] Connecting to ${serverPath.toString}...")
   val c: Out[Connect] = ActorOut[Connect](serverPath)
   val c2 = c !! Connect() _
@@ -138,6 +139,6 @@ object Actor extends App {
 
   client.join()
   // Cleanup and hut down the actor system
-  ActorChannel.cleanup()
+  runtime.cleanup()
   as.terminate()
 }

@@ -74,9 +74,9 @@ class Seller(ca: Out[binary.PlayAlice], cb: Out[binary.PlayBob])(implicit
     //       come up with a "reasonable" value for "..." that is accepted by
     //       the Scala compiler.  E.g., the following is accepted, but
     //       is visibly bogus:   ca !! ((_:In[Int]) => null)
-    val (abi, abo) = ca.create[binary.ShareA] // Used between Alice and Bob
-    val (sai, sao) = ca.create[binary.Title] // Used between Seller and Alice
-    val (sbi, sbo) = cb.create[binary.QuoteB] // Used between Seller and Bob
+    val (abi, abo) = ca.create[binary.ShareA]() // Used between Alice and Bob
+    val (sai, sao) = ca.create[binary.Title]() // Used between Seller and Alice
+    val (sbi, sbo) = cb.create[binary.QuoteB]() // Used between Seller and Bob
 
     // We now instantiate multiparty session objects (i.e., n-uples of
     // binary linear channels), and send them to our clients via channels
@@ -133,23 +133,24 @@ object Actor extends App {
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import org.apache.pekko.actor.ActorSystem
+  import org.apache.pekko.actor.typed.ActorSystem
+  import org.apache.pekko.actor.typed.SpawnProtocol
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as: ActorSystem = ActorSystem(
-    "ThreeBuyerSellerSys",
-    config = Some(config.getConfig("ThreeBuyerSellerSys")),
-    defaultExecutionContext = Some(global)
-  )
+  implicit val as: ActorSystem[SpawnProtocol.Command] =
+    ActorSystem[SpawnProtocol.Command](
+      SpawnProtocol(),
+      "ThreeBuyerSellerSys",
+      config.getConfig("ThreeBuyerSellerSys")
+    )
 
-  ActorChannel.setDefaultEC(global)
-  ActorChannel.setDefaultAS(as)
+  implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
   implicit val timeout: FiniteDuration = 120.seconds
 
   // We give a human-readable name to the connection endpoints
-  val (ai, ao) = ActorChannel.factory[binary.actor.ConnectAlice]("alice");
-  val (bi, bo) = ActorChannel.factory[binary.actor.ConnectBob]("bob");
+  val (ai, ao) = runtime.factory[binary.actor.ConnectAlice]("alice");
+  val (bi, bo) = runtime.factory[binary.actor.ConnectBob]("bob");
   println(
     s"[*] Waiting connections on: ${ao.path.toString}, ${bo.path.toString}"
   )

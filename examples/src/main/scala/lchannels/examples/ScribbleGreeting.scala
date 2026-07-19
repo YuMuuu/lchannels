@@ -212,7 +212,7 @@ object Local extends App {
   implicit val timeout: FiniteDuration = 10.seconds
 
   // Create channel for client/server interaction...
-  val (in1, out1) = LocalChannel.factory[binary.GreetOrQuit]
+  val (in1, out1) = LocalChannel.factory[binary.GreetOrQuit]()
   // ...and spawn server and client (note: we wrap channels in sesison objs)
   println("[*] Spawning server and client 1...")
   val s1 = Future { Server(S.MPGreetOrQuit(in1)) }
@@ -221,7 +221,7 @@ object Local extends App {
   Await.result(s1, 10.seconds) // Wait for server termination
 
   // Create channel for client/server interaction...
-  val (in2, out2) = LocalChannel.factory[binary.GreetOrQuit]
+  val (in2, out2) = LocalChannel.factory[binary.GreetOrQuit]()
   // ...and spawn server and client (note: we wrap channels in sesison objs)
   println("[*] Spawning server and client 2...")
   val s2 = Future { Server(S.MPGreetOrQuit(in2)) }
@@ -285,22 +285,23 @@ object ActorServer extends App {
   import scala.concurrent.duration.Duration
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import org.apache.pekko.actor.ActorSystem
+  import org.apache.pekko.actor.typed.ActorSystem
+  import org.apache.pekko.actor.typed.SpawnProtocol
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as: ActorSystem = ActorSystem(
-    "GreetingServerSys",
-    config = Some(config.getConfig("GreetingServerSys")),
-    defaultExecutionContext = Some(global)
-  )
+  implicit val as: ActorSystem[SpawnProtocol.Command] =
+    ActorSystem[SpawnProtocol.Command](
+      SpawnProtocol(),
+      "GreetingServerSys",
+      config.getConfig("GreetingServerSys")
+    )
 
-  ActorChannel.setDefaultEC(global)
-  ActorChannel.setDefaultAS(as)
+  implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
   implicit val timeout: Duration = Duration.Inf
 
   // We give a human-readable name ("greeting") to the server actor
-  val (in, out) = ActorChannel.factory[binary.GreetOrQuit]("start");
+  val (in, out) = runtime.factory[binary.GreetOrQuit]("start");
   println(s"[*] Greeting server listening on: ${out.path.toString}")
   Server(S.MPGreetOrQuit(in))
 
@@ -315,27 +316,29 @@ object ActorClient extends App {
 
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import org.apache.pekko.actor.ActorSystem
+  import org.apache.pekko.actor.typed.ActorSystem
+  import org.apache.pekko.actor.typed.SpawnProtocol
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as: ActorSystem = ActorSystem(
-    "GreetingClientSys",
-    config = Some(config.getConfig("GreetingClientSys")),
-    defaultExecutionContext = Some(global)
-  )
+  implicit val as: ActorSystem[SpawnProtocol.Command] =
+    ActorSystem[SpawnProtocol.Command](
+      SpawnProtocol(),
+      "GreetingClientSys",
+      config.getConfig("GreetingClientSys")
+    )
 
-  ActorChannel.setDefaultEC(global)
-  ActorChannel.setDefaultAS(as)
+  implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
   implicit val timeout: FiniteDuration = 10.seconds
 
-  val serverPath = "pekko://GreetingServerSys@127.0.0.1:31337/user/start"
+  val serverPath =
+    "pekko://GreetingServerSys@127.0.0.1:31337/user/lchannels/start"
   println(s"[*] Connecting to ${serverPath.toString}...")
   val c = ActorOut[binary.GreetOrQuit](serverPath)
   Client1(C.MPGreetOrQuit(c))
 
   Thread.sleep(2000) // Just to deliver pending actor messages
   // Cleanup and hut down the actor system
-  ActorChannel.cleanup()
+  runtime.cleanup()
   as.terminate()
 }

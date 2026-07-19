@@ -29,9 +29,11 @@ package lchannels.examples.chat.server
 import lchannels._
 
 import scala.collection.mutable.{Map => MMap}
-import scala.concurrent.{Channel, ExecutionContext}
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.util.{Try, Success, Failure}
+
+import java.util.concurrent.LinkedTransferQueue
 
 import com.typesafe.scalalogging.StrictLogging
 
@@ -135,7 +137,7 @@ class ChatServer(
   type SessionsMap = MMap[Int, Session]
   private var sessions: SessionsMap = MMap()
 
-  private val requests: Channel[SessionCommand] = new Channel()
+  private val requests = new LinkedTransferQueue[SessionCommand]()
 
   private val sessionHandler =
     new SessionHandler(this, requests, rfactory, cfactory)
@@ -253,7 +255,7 @@ class ChatServer(
     req match {
       case Success(r) => {
         logDebug(s"queueing ${r.toString}")
-        requests.write(r)
+        requests.put(r)
       }
       case Failure(e) => logDebug("got failure, not enqueuing")
     }
@@ -368,7 +370,7 @@ private case class RoomCtlRequest(
 
 private class SessionHandler(
     chatServer: ChatServer,
-    requests: Channel[SessionCommand],
+    requests: LinkedTransferQueue[SessionCommand],
     rfactory: () => (In[room.Messages], Out[room.Messages]),
     cfactory: () => (In[roomctl.Control], Out[roomctl.Control])
 )(implicit ec: ExecutionContext, timeout: Duration)
@@ -383,7 +385,7 @@ private class SessionHandler(
   // Server name, used for system messages
   protected[server] val serverName = chatServer.serverName
 
-  private val roomRequests: Channel[RoomCtlRequest] = new Channel()
+  private val roomRequests = new LinkedTransferQueue[RoomCtlRequest]()
 
   private val roomHandler = new RoomHandler(this, roomRequests)
 
@@ -400,7 +402,7 @@ private class SessionHandler(
 
   def serverLoop(): Unit = {
     try {
-      val req = requests.read
+      val req = requests.take()
       logDebug(s"dequeued ${req.toString}")
       try {
         chatServer.assertSessionId(req.id)
@@ -476,7 +478,7 @@ private class SessionHandler(
     req match {
       case Success(r) => {
         logDebug(s"queueing ${r.toString}")
-        roomRequests.write(r)
+        roomRequests.put(r)
       }
       case Failure(e) => logDebug("got failure, not enqueuing")
     }
@@ -513,7 +515,7 @@ private class SessionHandler(
 
 private class RoomHandler(
     sessionHandler: SessionHandler,
-    requests: Channel[RoomCtlRequest]
+    requests: LinkedTransferQueue[RoomCtlRequest]
 )(implicit ec: ExecutionContext, timeout: Duration)
     extends Runnable
     with StrictLogging {
@@ -534,7 +536,7 @@ private class RoomHandler(
 
   private def serverLoop(): Unit = {
     try {
-      requests.read match {
+      requests.take() match {
         case RoomCtlRequest(sId, rname, subscrId, ctl) =>
           try {
             sessionHandler.assertSessionIdAndChat(sId, rname, subscrId)
