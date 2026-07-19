@@ -64,7 +64,7 @@ object Demo {
     val (cb, sb) = bfactory()
 
     // Promise/future pair used to "connect" Bob and Carol
-    val bcp = Promise[In[Contrib]]
+    val bcp = Promise[In[Contrib]]()
     val bcf = bcp.future
 
     // Here, the connector to Bob (used by Carol) will not return

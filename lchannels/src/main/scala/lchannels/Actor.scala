@@ -26,14 +26,25 @@
 /** @author Alceste Scalas <alceste.scalas@imperial.ac.uk> */
 package lchannels
 
-import scala.annotation.meta.field
-import scala.concurrent.{blocking, ExecutionContext, Future}
+import scala.concurrent.{Await, blocking, ExecutionContext, Future}
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.util.{Try, Success}
+import scala.util.{Failure, Success, Try}
 
-import java.util.concurrent.TimeoutException
-
-import org.apache.pekko.actor.{ActorPath, ActorRef, ActorSystem}
+import org.apache.pekko.actor.ActorPath
+import org.apache.pekko.actor.typed.{
+  ActorRef,
+  ActorRefResolver,
+  ActorSystem,
+  Behavior,
+  Props,
+  SpawnProtocol
+}
+import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+import org.apache.pekko.actor.typed.scaladsl.ActorContext
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.pattern.ExplicitlyAskableActorRef
+import org.apache.pekko.util.Timeout
 
 /** The medium of actor-based channels. */
 case class Actor()
@@ -41,156 +52,215 @@ case class Actor()
 /* Type used by dispatcher behaviors, to receive their destination actor and
  * the actual transmitted value (in any order).
  */
-private sealed abstract class ValueOrDest[T]
-private case class Value[T](v: Try[T]) extends ValueOrDest[T]
-private case class Dispatch[T](dest: ActorRef) extends ValueOrDest[T]
+private sealed abstract class DispatcherMessage[T]
+private case class Value[T](v: Try[T]) extends DispatcherMessage[T]
+private case class Pull[T](replyTo: ActorRef[Try[T]])
+    extends DispatcherMessage[T]
+private case class StopDispatcher[T]() extends DispatcherMessage[T]
 
-protected[lchannels] object Defaults {
-  import java.util.concurrent.atomic.AtomicReference
-  import java.util.concurrent.{LinkedTransferQueue => LTQueue}
-  import org.apache.pekko.actor.{ActorSystem, Props}
-
-  private val exCtx = new AtomicReference[ExecutionContext]()
-  private val actorSys = new AtomicReference[ActorSystem]()
-
-  // Dispatcher actors will receive messages and forward them to retrievers
-  private val dispatchers = new LTQueue[ActorRef]()
-
-  // Retriever actors will receive messages and write them in companion queue
-  private val retrievers = new LTQueue[(ActorRef, LTQueue[Try[Any]])]()
-
-  // This set tracks all actors that have been created thus far.
-  // It will be used to kill active actors: see ActorChannels.cleanup()
-  private val actors = scala.collection.mutable.Set[ActorRef]()
-
-  def setExCtx(ec: ExecutionContext): Unit = exCtx.set(ec)
-
-  def setExCtxIfUnset(ec: ExecutionContext): Boolean = {
-    exCtx.compareAndSet(null, ec)
+protected[lchannels] object ActorChannelGuardian {
+  sealed trait Command {
+    private[lchannels] def handle(
+        ctx: ActorContext[Command]
+    ): Behavior[Command]
   }
 
-  def getExCtx(ec: ExecutionContext): ExecutionContext = {
-    if (ec == null) {
-      // Try to use the default
-      exCtx.get() match {
-        case null => {
-          // FIXME: more descriptive exception here
-          throw new IllegalStateException("Cannot determine ExecutionContext")
-        }
-        case ctx => ctx
+  final case class Create[T](
+      name: Option[String],
+      replyTo: ActorRef[(ActorIn[T], ActorOut[T])]
+  ) extends Command {
+    override private[lchannels] def handle(
+        ctx: ActorContext[Command]
+    ): Behavior[Command] = {
+      val dref = name match {
+        case Some(actorName) =>
+          ctx.spawn(dispatcher[T](None, None), actorName)
+        case None =>
+          ctx.spawnAnonymous(dispatcher[T](None, None))
       }
-    } else {
-      ec
+      replyTo ! (ActorIn[T](dref), ActorOut[T](dref, ctx.self))
+      Behaviors.same
     }
   }
 
-  def setActorSys(as: ActorSystem): Unit = actorSys.set(as)
-
-  def setActorSysIfUnset(as: ActorSystem): Boolean = {
-    actorSys.compareAndSet(null, as)
-  }
-
-  def getActorSys(as: ActorSystem): ActorSystem = {
-    if (as == null) {
-      // Try to use the default
-      actorSys.get() match {
-        case null => {
-          // FIXME: more descriptive exception here
-          throw new IllegalStateException("Cannot determine ActorSystem")
+  final case class Cleanup(replyTo: ActorRef[Unit]) extends Command {
+    override private[lchannels] def handle(
+        ctx: ActorContext[Command]
+    ): Behavior[Command] = {
+      val children = ctx.children.toSet
+      if (children.isEmpty) {
+        replyTo ! ()
+        Behaviors.stopped
+      } else {
+        children.foreach { child =>
+          ctx.watchWith(child, ChildStopped(child))
+          ctx.stop(child)
         }
-        case sys => sys
+        stopping(children, replyTo)
       }
-    } else {
-      as
     }
   }
 
-  class Dispatcher(stayAlive: Boolean) extends org.apache.pekko.actor.Actor {
-    private var recvdValue: Option[Try[Any]] = None
-    private var recvdDest: Option[ActorRef] = None
+  private final case class ChildStopped(ref: ActorRef[Nothing])
+      extends Command {
+    override private[lchannels] def handle(
+        ctx: ActorContext[Command]
+    ): Behavior[Command] = {
+      Behaviors.same
+    }
+  }
 
-    override def receive = {
+  def apply(): Behavior[Command] = {
+    Behaviors.receive { (ctx, command) => command.handle(ctx) }
+  }
+
+  private def stopping(
+      children: Set[ActorRef[Nothing]],
+      replyTo: ActorRef[Unit]
+  ): Behavior[Command] = {
+    Behaviors.receiveMessage {
+      case ChildStopped(ref) => {
+        val remaining = children - ref
+        if (remaining.isEmpty) {
+          replyTo ! ()
+          Behaviors.stopped
+        } else {
+          stopping(remaining, replyTo)
+        }
+      }
+      case _ => Behaviors.same
+    }
+  }
+
+  private def dispatcher[T](
+      recvdValue: Option[Try[T]],
+      recvdPull: Option[ActorRef[Try[T]]]
+  ): Behavior[DispatcherMessage[T]] = {
+    Behaviors.receiveMessage[DispatcherMessage[T]] {
       case Value(v) =>
-        recvdDest match {
+        recvdPull match {
           case Some(ref) => {
             ref ! v
-            if (!stayAlive) {
-              actors.remove(self)
-              self ! org.apache.pekko.actor.PoisonPill
-            } else {
-              // We can be reused
-              recvdDest = None
-              dispatchers.put(self)
-            }
+            Behaviors.stopped
           }
-          case None => recvdValue = Some(v) // We should reiceve dest later
+          case None => dispatcher(Some(v), recvdPull)
         }
-      case Dispatch(dest) =>
+      case Pull(replyTo) =>
         recvdValue match {
           case Some(v) => {
-            dest ! v
-            if (!stayAlive) {
-              actors.remove(self)
-              self ! org.apache.pekko.actor.PoisonPill
-            } else {
-              // We can be reused
-              recvdValue = None
-              dispatchers.put(self)
-            }
+            replyTo ! v
+            Behaviors.stopped
           }
-          case None =>
-            recvdDest = Some(dest) // We should receive the value later
+          case None => dispatcher(recvdValue, Some(replyTo))
         }
+      case StopDispatcher() => Behaviors.stopped
     }
   }
+}
 
-  class Retriever(queue: LTQueue[Try[Any]])
-      extends org.apache.pekko.actor.Actor {
-    override def receive = {
-      case v: Try[Any] => {
-        queue.put(v)
-        // We can be reused
-        retrievers.put((self, queue))
-      }
-    }
+final class ActorChannelRuntime private (
+    val actorSystem: ActorSystem[SpawnProtocol.Command],
+    val executionContext: ExecutionContext,
+    private val spawnTimeout: Timeout
+) {
+  private val guardianName = "lchannels"
+  private var guardianRef: Option[ActorRef[ActorChannelGuardian.Command]] =
+    None
+
+  private def spawnGuardian(): ActorRef[ActorChannelGuardian.Command] = {
+    Await.result(
+      actorSystem.ask[ActorRef[ActorChannelGuardian.Command]] { replyTo =>
+        SpawnProtocol.Spawn(
+          ActorChannelGuardian(),
+          guardianName,
+          Props.empty,
+          replyTo
+        )
+      }(spawnTimeout, actorSystem.scheduler),
+      spawnTimeout.duration
+    )
   }
 
-  def getDispatcher(as: ActorSystem, name: Option[String]): ActorRef =
-    dispatchers.poll match {
-      case ref: ActorRef => ref // We can reuse a dispatcher
-      case null          => {
-        // No dispatcher is available: let's create a new one
-        // TODO: allow to limit queue size and/or the number of live dispatchers
-        // Note that if the dispatcher is given a name, it will NOT stay alive
-        val ref = name match {
-          case None       => as.actorOf(Props(new Dispatcher(true)))
-          case Some(name) => as.actorOf(Props(new Dispatcher(false)), name)
-        }
-        actors.add(ref) // Keep track of the actor
+  private def guardian: ActorRef[ActorChannelGuardian.Command] = {
+    synchronized {
+      guardianRef.getOrElse {
+        val ref = spawnGuardian()
+        guardianRef = Some(ref)
         ref
       }
     }
+  }
 
-  def getRetriever(as: ActorSystem): (ActorRef, LTQueue[Try[Any]]) =
-    retrievers.poll match {
-      case (ref: ActorRef, q: LTQueue[Try[Any]]) =>
-        (ref, q) // We can reuse a retriever
-      case null => {
-        // No retriever is available: let's create a new one
-        // TODO: allow to limit queue size and/or the number of live dispatchers
-        val q = new LTQueue[Try[Any]]()
-        val ref = as.actorOf(Props(new Retriever(q)))
-        actors.add(ref) // Keep track of the actor
-        (ref, q)
-      }
+  /** Create a pair of actor-based I/O channel endpoints. */
+  def factory[T](): (ActorIn[T], ActorOut[T]) = create[T](None)
+
+  /** Create a named pair of actor-based I/O channel endpoints. */
+  def factory[T](name: String): (ActorIn[T], ActorOut[T]) = {
+    assert(name != "")
+    create[T](Some(name))
+  }
+
+  private def create[T](name: Option[String]): (ActorIn[T], ActorOut[T]) = {
+    Await.result(
+      guardian.ask[(ActorIn[T], ActorOut[T])] { replyTo =>
+        ActorChannelGuardian.Create(name, replyTo)
+      }(spawnTimeout, actorSystem.scheduler),
+      spawnTimeout.duration
+    )
+  }
+
+  /** Spawn two functions as threads communicating via actor-based endpoints. */
+  def parallel[T, R1, R2](
+      p1: ActorIn[T] => R1,
+      p2: ActorOut[T] => R2
+  ): (Future[R1], Future[R2]) = {
+    val (in, out) = factory[T]()
+    (
+      Future { blocking { p1(in) } }(executionContext),
+      Future { blocking { p2(out) } }(executionContext)
+    )
+  }
+
+  /** Gracefully stop the guardian and all channel actors owned by this runtime. */
+  def cleanup(): Unit = {
+    val active = synchronized {
+      val ref = guardianRef
+      guardianRef = None
+      ref
     }
-
-  def killActors() = {
-    // TODO: should we forbid spawning new actors?  Or just leave it to user?
-    actors.foreach { ref =>
-      ref ! org.apache.pekko.actor.PoisonPill
+    active.foreach { ref =>
+      Await.result(
+        ref.ask[Unit] { replyTo =>
+          ActorChannelGuardian.Cleanup(replyTo)
+        }(spawnTimeout, actorSystem.scheduler),
+        spawnTimeout.duration
+      )
     }
   }
+}
+
+object ActorChannelRuntime {
+  def apply(
+      as: ActorSystem[SpawnProtocol.Command],
+      ec: ExecutionContext
+  ): ActorChannelRuntime = {
+    apply(as, ec, FiniteDuration(5, java.util.concurrent.TimeUnit.SECONDS))
+  }
+
+  def apply(
+      as: ActorSystem[SpawnProtocol.Command],
+      ec: ExecutionContext,
+      timeout: FiniteDuration
+  ): ActorChannelRuntime = {
+    new ActorChannelRuntime(as, ec, Timeout(timeout))
+  }
+
+  private[lchannels] val internalAskTimeout: Timeout =
+    Timeout(FiniteDuration(5, java.util.concurrent.TimeUnit.SECONDS))
+
+  // Pekko ask requires a finite timeout even when lchannels exposes Duration.Inf.
+  private[lchannels] val unboundedReceiveTimeout: Timeout =
+    Timeout(FiniteDuration(7, java.util.concurrent.TimeUnit.DAYS))
 }
 
 /** Channels that implement message delivery by automatically spawning Pekko
@@ -198,70 +268,25 @@ protected[lchannels] object Defaults {
   */
 object ActorChannel {
 
-  /** Set the default execution context for actor-based channels.
-    *
-    * This default must be provided before using `ActorChannel`s over a network.
-    */
-  def setDefaultEC(ec: ExecutionContext) = Defaults.setExCtx(ec)
-
-  /** Set the default execution context for actor-based channels, if it was not
-    * already set.
-    *
-    * This default must be provided before using `ActorChannel`s over a network.
-    *
-    * @return
-    *   `true` if the default is updated, `false` if it was already set
-    */
-  def setDefaultECIfUnset(ec: ExecutionContext): Boolean = {
-    Defaults.setExCtxIfUnset(ec)
+  /** Create an actor-channel runtime bound to an actor system. */
+  def runtime(
+      as: ActorSystem[SpawnProtocol.Command],
+      ec: ExecutionContext
+  ): ActorChannelRuntime = {
+    ActorChannelRuntime(as, ec)
   }
 
-  /** Set the default actor system for actor-based channels.
-    *
-    * This default must be provided before using `ActorChannel`s over a network.
-    */
-  def setDefaultAS(as: ActorSystem) = Defaults.setActorSys(as)
-
-  /** Set the default execution context for actor-based channels, if it was not
-    * already set.
-    *
-    * This default must be provided before using `ActorChannel`s over a network.
-    *
-    * @return
-    *   `true` if the default is updated, `false` if it was already set
-    */
-  def setDefaultASIfUnset(as: ActorSystem): Boolean = {
-    Defaults.setActorSysIfUnset(as)
-  }
-
-  /** Release the resources used by actor-based channels, resetting the default
-    * `ExecutionContext` and `ActorSystem`.
-    *
-    * Invoke this method before shutting down a previously used `ActorSystem`.
-    */
-  def cleanup() = {
-    setDefaultEC(null)
-    setDefaultAS(null)
-    Defaults.killActors()
-  }
+  /** Release the resources used by actor-based channels. */
+  def cleanup()(implicit runtime: ActorChannelRuntime): Unit =
+    runtime.cleanup()
 
   /** Create a pair of actor-based I/O channel endpoints.
     *
-    * @param ec
-    *   Execution context for internal `Promise`/`Future` handling
-    * @param as
-    *   Actor context for internal actor management
+    * @param runtime
+    *   Actor-channel runtime for internal actor and `Future` management
     */
-  def factory[T]()(implicit
-      ec: ExecutionContext,
-      as: ActorSystem
-  ): (ActorIn[T], ActorOut[T]) = {
-    val dec = Defaults.getExCtx(ec)
-    val das = Defaults.getActorSys(as)
-    val dref = Defaults.getDispatcher(das, None)
-
-    (ActorIn[T](dref)(dec, das), ActorOut[T](dref)(dec, das))
-  }
+  def factory[T]()(implicit runtime: ActorChannelRuntime)
+      : (ActorIn[T], ActorOut[T]) = runtime.factory[T]()
 
   /** Create a pair of actor-based I/O channel endpoints, with a specific name.
     *
@@ -274,22 +299,11 @@ object ActorChannel {
     *
     * @param name
     *   Name of the Pekko actor giving access to the returned actor endpoints.
-    * @param ec
-    *   Execution context for internal `Promise`/`Future` handling
-    * @param as
-    *   Actor context for internal actor management
+    * @param runtime
+    *   Actor-channel runtime for internal actor and `Future` management
     */
-  def factory[T](name: String)(implicit
-      ec: ExecutionContext,
-      as: ActorSystem
-  ): (ActorIn[T], ActorOut[T]) = {
-    assert(name != "")
-    val dec = Defaults.getExCtx(ec)
-    val das = Defaults.getActorSys(as)
-    val dref = Defaults.getDispatcher(das, Some(name))
-
-    (ActorIn[T](dref)(dec, das), ActorOut[T](dref)(dec, das))
-  }
+  def factory[T](name: String)(implicit runtime: ActorChannelRuntime)
+      : (ActorIn[T], ActorOut[T]) = runtime.factory[T](name)
 
   /** Spawn two functions as threads communicating via a pair of actor-based
     * channel endpoints.
@@ -305,28 +319,20 @@ object ActorChannel {
     *   Function using the input channel endpoint
     * @param p2
     *   Function using the output channel endpoint
-    * @param ec
-    *   Execution context where the `p1` and `p2` will run
-    * @param as
-    *   Actor context for internal actor management
+    * @param runtime
+    *   Actor-channel runtime where `p1` and `p2` will run
     */
   def parallel[T, R1, R2](p1: ActorIn[T] => R1, p2: ActorOut[T] => R2)(implicit
-      ec: ExecutionContext,
-      as: ActorSystem
-  ): (Future[R1], Future[R2]) = {
-    val (in, out) = factory[T]()
-    (Future { blocking { p1(in) } }, Future { blocking { p2(out) } })
-  }
+      runtime: ActorChannelRuntime
+  ): (Future[R1], Future[R2]) = runtime.parallel(p1, p2)
 }
 
 /** Actor-based input channel endpoint, usually created through the
   * [[[ActorIn$.apply* companion object]]] or via [[ActorChannel.factory]].
   */
-// FIXME: with some fiddling, we should make ActorIn covariant on T
 @SerialVersionUID(1L)
-protected[lchannels] class ActorIn[T](dref: ActorRef)(
-    @(transient @field) implicit val ec: ExecutionContext,
-    @(transient @field) implicit val as: ActorSystem
+protected[lchannels] class ActorIn[+T](
+    private[this] val dref: ActorRef[DispatcherMessage[T]]
 ) extends medium.In[Actor, T]
     with Serializable {
   // We have to reimplement usage flags in a serializable way
@@ -345,23 +351,23 @@ protected[lchannels] class ActorIn[T](dref: ActorRef)(
     */
   def path: ActorPath = dref.path
 
-  override def receive(implicit atMost: Duration) = {
+  override def receive(implicit atMost: Duration): T = {
     _markAsUsed()
-    // FIXME: the following can/should be optimised
 
-    val das = Defaults.getActorSys(as)
-    val (retr, q) = Defaults.getRetriever(das)
+    val timeout = ActorIn.receiveTimeout(atMost)
+    val received = Await
+      .result(
+        new ExplicitlyAskableActorRef(dref.toClassic)
+          .ask { replyTo =>
+            Pull[T](replyTo.toTyped[Try[T]])
+          }(timeout),
+        ActorIn.awaitDuration(atMost)
+      )
+      .asInstanceOf[Try[T]]
 
-    val fv = dref ! Dispatch(retr)
-
-    if (atMost.isFinite) {
-      val v = q.poll(atMost.length, atMost.unit)
-      if (v == null) {
-        throw new TimeoutException(s"Input timed out after ${atMost.toString}")
-      }
-      v.get.asInstanceOf[T] // recvd value has type Try[T]
-    } else {
-      q.take().get.asInstanceOf[T] // recvd value has type Try[T]
+    received match {
+      case Success(value) => value
+      case Failure(error) => throw error
     }
   }
 
@@ -373,28 +379,25 @@ protected[lchannels] class ActorIn[T](dref: ActorRef)(
 /** Actor-based input channel endpoint. */
 object ActorIn {
   private[lchannels] def apply[T](
-      dref: ActorRef
-  )(implicit ec: ExecutionContext, as: ActorSystem): ActorIn[T] = {
-    new ActorIn(dref)(ec, as)
+      dref: ActorRef[DispatcherMessage[T]]
+  ): ActorIn[T] = {
+    new ActorIn(dref)
   }
 
   /** Proxy an [[ActorIn]] instance reachable through the given Pekko actor path
     *
     * @param path
     *   Actor path, matching the value of some [[ActorIn.path]]
-    * @param ec
-    *   Execution context for internal `Promise`/`Future` handling
-    * @param as
-    *   Actor system for internal actor handling
+    * @param runtime
+    *   Actor-channel runtime for path resolution and internal actor handling
     * @param timeout
     *   Max wait time for path resolution
     */
   def apply[T](path: ActorPath)(implicit
-      ec: ExecutionContext,
-      as: ActorSystem,
+      runtime: ActorChannelRuntime,
       timeout: FiniteDuration
   ): ActorIn[T] = {
-    apply(ActorIn.resolvePath(path, timeout))
+    apply(ActorIn.resolvePath[T](path, timeout))
   }
 
   /** Proxy an [[ActorIn]] instance reachable through the given Pekko actor path
@@ -402,35 +405,52 @@ object ActorIn {
     *
     * @param path
     *   Actor path, matching the value of some [[ActorIn.path]]
-    * @param ec
-    *   Execution context for internal `Promise`/`Future` handling
-    * @param as
-    *   Actor system for internal actor handling
+    * @param runtime
+    *   Actor-channel runtime for path resolution and internal actor handling
     * @param timeout
     *   Max wait time for path resolution
     */
   def apply[T](path: String)(implicit
-      ec: ExecutionContext,
-      as: ActorSystem,
+      runtime: ActorChannelRuntime,
       timeout: FiniteDuration
   ): ActorIn[T] = {
     apply(org.apache.pekko.actor.ActorPaths.fromString(path))
   }
 
-  private[lchannels] def resolvePath(
+  private[lchannels] def resolvePath[T](
       path: ActorPath,
       timeout: FiniteDuration
-  )(implicit ec: ExecutionContext, as: ActorSystem): ActorRef = {
-    import org.apache.pekko.actor.{ActorIdentity, Identify}
-    import org.apache.pekko.pattern.ask
-    import scala.concurrent.Await
+  )(implicit
+      runtime: ActorChannelRuntime
+  ): ActorRef[DispatcherMessage[T]] = {
+    ActorRefResolver(runtime.actorSystem)
+      .resolveActorRef[DispatcherMessage[T]](path.toString)
+  }
 
-    val sel = Await.result(as.actorSelection(path).resolveOne(timeout), timeout)
-    val ref = for {
-      ans <- ask(sel, Identify(1))(timeout).mapTo[ActorIdentity]
-    } yield ans.getActorRef.get // TODO: fail fast or propagate option?
+  private[lchannels] def resolveGuardian(
+      path: ActorPath
+  )(implicit runtime: ActorChannelRuntime): ActorRef[ActorChannelGuardian.Command] = {
+    ActorRefResolver(runtime.actorSystem)
+      .resolveActorRef[ActorChannelGuardian.Command](path.parent.toString)
+  }
 
-    Await.result(ref, timeout)
+  private[lchannels] def receiveTimeout(atMost: Duration): Timeout = {
+    atMost match {
+      case fd: FiniteDuration => Timeout(fd)
+      case Duration.Inf       => ActorChannelRuntime.unboundedReceiveTimeout
+      case _ =>
+        throw new IllegalArgumentException("Duration.Undefined is not allowed")
+    }
+  }
+
+  private[lchannels] def awaitDuration(atMost: Duration): Duration = {
+    atMost match {
+      case Duration.Inf => Duration.Inf
+      case fd: FiniteDuration =>
+        fd
+      case _ =>
+        throw new IllegalArgumentException("Duration.Undefined is not allowed")
+    }
   }
 }
 
@@ -438,9 +458,9 @@ object ActorIn {
   * [[[ActorOut$.apply* companion object]]] or via [[ActorChannel.factory]].
   */
 @SerialVersionUID(1L)
-protected[lchannels] class ActorOut[-T](val dref: ActorRef)(implicit
-    @(transient @field) val ec: ExecutionContext,
-    @(transient @field) val as: ActorSystem
+protected[lchannels] class ActorOut[-T](
+    private[this] val dref: ActorRef[DispatcherMessage[T]],
+    private[this] val guardian: ActorRef[ActorChannelGuardian.Command]
 ) extends medium.Out[Actor, T]
     with Serializable {
   // We have to reimplement usage flags in a serializable way
@@ -459,16 +479,27 @@ protected[lchannels] class ActorOut[-T](val dref: ActorRef)(implicit
     */
   def path: ActorPath = dref.path
 
-  override def send(v: T) = synchronized {
+  override def send(v: T): Unit = synchronized {
     _markAsUsed()
     dref ! Value(Success(v))
   }
 
   override def create[U](): (ActorIn[U], ActorOut[U]) = {
-    ActorChannel.factory[U]()(Defaults.getExCtx(ec), Defaults.getActorSys(as))
+    Await
+      .result(
+        new ExplicitlyAskableActorRef(guardian.toClassic)
+          .ask { replyTo =>
+            ActorChannelGuardian.Create[U](
+              None,
+              replyTo.toTyped[(ActorIn[U], ActorOut[U])]
+            )
+          }(ActorChannelRuntime.internalAskTimeout),
+        ActorChannelRuntime.internalAskTimeout.duration
+      )
+      .asInstanceOf[(ActorIn[U], ActorOut[U])]
   }
 
-  override def toString() = {
+  override def toString(): String = {
     s"ActorOut@${hashCode.toString} → ${dref.path.toString}"
   }
 }
@@ -476,9 +507,10 @@ protected[lchannels] class ActorOut[-T](val dref: ActorRef)(implicit
 /** Actor-based output channel endpoint. */
 object ActorOut {
   private[lchannels] def apply[T](
-      dref: ActorRef
-  )(implicit ec: ExecutionContext, as: ActorSystem): ActorOut[T] = {
-    new ActorOut(dref)(ec, as)
+      dref: ActorRef[DispatcherMessage[T]],
+      guardian: ActorRef[ActorChannelGuardian.Command]
+  ): ActorOut[T] = {
+    new ActorOut(dref, guardian)
   }
 
   /** Proxy an [[ActorOut]] instance reachable through the given Pekko actor
@@ -486,19 +518,19 @@ object ActorOut {
     *
     * @param path
     *   Actor path, matching the value of some [[ActorIn.path]]
-    * @param ec
-    *   Execution context for internal `Promise`/`Future` handling
-    * @param as
-    *   Actor system for internal actor handling
+    * @param runtime
+    *   Actor-channel runtime for path resolution and internal actor handling
     * @param timeout
     *   Max wait time for path resolution
     */
   def apply[T](path: ActorPath)(implicit
-      ec: ExecutionContext,
-      as: ActorSystem,
+      runtime: ActorChannelRuntime,
       timeout: FiniteDuration
   ): ActorOut[T] = {
-    apply(ActorIn.resolvePath(path, timeout))
+    apply(
+      ActorIn.resolvePath[T](path, timeout),
+      ActorIn.resolveGuardian(path)
+    )
   }
 
   /** Proxy an [[ActorOut]] instance reachable through the given Pekko actor
@@ -506,16 +538,13 @@ object ActorOut {
     *
     * @param path
     *   Actor path, matching the value of some [[ActorIn.path]]
-    * @param ec
-    *   Execution context for internal `Promise`/`Future` handling
-    * @param as
-    *   Actor system for internal actor handling
+    * @param runtime
+    *   Actor-channel runtime for path resolution and internal actor handling
     * @param timeout
     *   Max wait time for path resolution
     */
   def apply[T](path: String)(implicit
-      ec: ExecutionContext,
-      as: ActorSystem,
+      runtime: ActorChannelRuntime,
       timeout: FiniteDuration
   ): ActorOut[T] = {
     apply(org.apache.pekko.actor.ActorPaths.fromString(path))

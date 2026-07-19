@@ -48,7 +48,6 @@ lazy val lchannels = (project in file("lchannels"))
   .settings(
     name := "lchannels",
     libraryDependencies ++= Seq(
-      "org.apache.pekko" %% "pekko-actor" % "1.6.0",
       "org.apache.pekko" %% "pekko-actor-typed" % "1.6.0",
       "org.apache.pekko" %% "pekko-remote" % "1.6.0"
     )

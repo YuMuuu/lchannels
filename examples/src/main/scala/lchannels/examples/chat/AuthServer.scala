@@ -30,9 +30,11 @@ import lchannels._
 
 import lchannels.examples.chat.protocol.public._
 
-import scala.concurrent.{Channel, ExecutionContext}
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.util.{Try, Success, Failure}
+
+import java.util.concurrent.LinkedTransferQueue
 
 import com.typesafe.scalalogging.StrictLogging
 
@@ -60,7 +62,7 @@ class AuthServer(
   private def logError(msg: String) = logger.error(s"${msg.toString}")
 
   // FIFO queue with requests from clients
-  private val requests: Channel[Authenticate] = new Channel()
+  private val requests = new LinkedTransferQueue[Authenticate]()
 
   private val authenticator = new Authenticator(requests, sessionSrv)
 
@@ -97,14 +99,14 @@ class AuthServer(
   private def queueRequest(req: Try[Authenticate]): Unit = req match {
     case Success(r) => {
       logDebug(s"queueing ${r.toString}")
-      requests.write(r)
+      requests.put(r)
     }
     case Failure(e) => logDebug("got failure, not enqueuing")
   }
 }
 
 private class Authenticator(
-    requests: Channel[Authenticate],
+    requests: LinkedTransferQueue[Authenticate],
     sessionSrv: Out[IntCreateSession]
 )(implicit timeout: Duration)
     extends Runnable
@@ -132,7 +134,7 @@ private class Authenticator(
 
   def serverLoop(sessionSrv: Out[IntCreateSession]): Unit = {
     try {
-      serverLoop(serve(requests.read, sessionSrv))
+      serverLoop(serve(requests.take(), sessionSrv))
     } catch {
       case _: InterruptedException => {
         logDebug("interrupted, leaving main loop")

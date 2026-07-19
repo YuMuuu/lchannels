@@ -27,10 +27,10 @@
 package lchannels.benchmarks.chameneos
 
 import lchannels._
+import org.apache.pekko.actor.typed.{ActorSystem, SpawnProtocol}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
-
 import java.util.concurrent.{LinkedBlockingQueue => Fifo}
 
 /** The color of a chameneos */
@@ -179,7 +179,7 @@ object PromiseFutureImpl {
     /** If [[activate]] was called, return a connection to the broker. */
     def connect(): Future[Response] = synchronized {
       while (!active) wait() // Wait for activate()
-      val out = Promise[Response]; val in = out.future
+      val out = Promise[Response](); val in = out.future
       requests.put(out)
       in
     }
@@ -197,7 +197,7 @@ object PromiseFutureImpl {
           r2.success(Closed())
         } else {
           // Used for interaction btwn chameneos
-          val cout = Promise[Greeting]; val cin = cout.future
+          val cout = Promise[Greeting](); val cin = cout.future
           r1.success(Start(cout))
           r2.success(Wait(cin))
         }
@@ -221,7 +221,7 @@ object PromiseFutureImpl {
     override final def run() = {
       Await.result(broker.connect(), timeout) match {
         case Start(c) => {
-          val aout = Promise[Answer]; val ain = aout.future
+          val aout = Promise[Answer](); val ain = aout.future
           c.success(Greeting(name, color, aout))
           Await.result(ain, timeout)
           color = color.next
@@ -241,15 +241,21 @@ object PromiseFutureImpl {
 
 /** Scala Channel-based implementation */
 object ScalaChannelsImpl {
-  import scala.concurrent.Channel
+  import java.util.concurrent.LinkedTransferQueue
 
   ////////////////////////////////////////////////////////////////////////////
   // Session type for chameneos-broker interaction (T_cham is defined below):
   // T = ?Start(T_cham).end & ?Wait(dual(T_Cham)).end & Closed()
   ////////////////////////////////////////////////////////////////////////////
   sealed abstract class Response
-  case class Start(cw: Channel[Greeting], cr: Channel[Answer]) extends Response
-  case class Wait(cr: Channel[Greeting], cw: Channel[Answer]) extends Response
+  case class Start(
+      cw: LinkedTransferQueue[Greeting],
+      cr: LinkedTransferQueue[Answer]
+  ) extends Response
+  case class Wait(
+      cr: LinkedTransferQueue[Greeting],
+      cw: LinkedTransferQueue[Answer]
+  ) extends Response
   case class Closed() extends Response
 
   ////////////////////////////////////////////////////////////////////////////
@@ -264,7 +270,7 @@ object ScalaChannelsImpl {
   class Broker(meetings: Int)(implicit ec: ExecutionContext, timeout: Duration)
       extends Runnable {
     // Queue of requests from chameneos
-    private val requests = new Fifo[Channel[Response]]()
+    private val requests = new Fifo[LinkedTransferQueue[Response]]()
 
     // Own thread
     private val thread = { val t = new Thread(this); t.start(); t }
@@ -279,9 +285,9 @@ object ScalaChannelsImpl {
     }
 
     /** If [[activate]] was called, return a connection to the broker. */
-    def connect(): Channel[Response] = synchronized {
+    def connect(): LinkedTransferQueue[Response] = synchronized {
       while (!active) wait() // Wait for activate()
-      val c = new Channel[Response]()
+      val c = new LinkedTransferQueue[Response]()
       requests.put(c)
       c
     }
@@ -295,13 +301,13 @@ object ScalaChannelsImpl {
         val r2 = requests.take()
 
         if (meetings == 0) {
-          r1.write(Closed()); r2.write(Closed())
+          r1.put(Closed()); r2.put(Closed())
         } else {
           // Used for interaction btwn chameneos
-          val cg = new Channel[Greeting]
-          val ca = new Channel[Answer]
-          r1.write(Start(cg, ca))
-          r2.write(Wait(cg, ca))
+          val cg = new LinkedTransferQueue[Greeting]()
+          val ca = new LinkedTransferQueue[Answer]()
+          r1.put(Start(cg, ca))
+          r2.put(Wait(cg, ca))
         }
         true
       } catch {
@@ -321,16 +327,16 @@ object ScalaChannelsImpl {
 
     @scala.annotation.tailrec
     override final def run() = {
-      broker.connect().read match {
+      broker.connect().take() match {
         case Start(cg, ca) => {
-          cg.write(Greeting(name, color))
-          ca.read
+          cg.put(Greeting(name, color))
+          ca.take()
           color = color.next
           run()
         }
         case Wait(cg, ca) => {
-          cg.read
-          ca.write(Answer(name, color))
+          cg.take()
+          ca.put(Answer(name, color))
           color = color.next
           run()
         }
@@ -464,8 +470,15 @@ object Benchmark {
     import scala.collection.mutable.{Buffer => MBuffer}
     case class Bench(title: String, f: () => Long, results: MBuffer[Long])
 
-    implicit val as = org.apache.pekko.actor
-      .ActorSystem("RingBenchmark", defaultExecutionContext = Some(global))
+    implicit val as: ActorSystem[
+      SpawnProtocol.Command
+    ] =
+      org.apache.pekko.actor.typed
+        .ActorSystem[SpawnProtocol.Command](
+          SpawnProtocol(),
+          "RingBenchmark"
+        )
+    implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
     implicit val timeout: FiniteDuration = 3600.seconds
 
@@ -541,8 +554,8 @@ object Benchmark {
         "lchannels (actors)",
         () =>
           lBenchmark(
-            ActorChannel.factory,
-            ActorChannel.factory,
+            runtime.factory,
+            runtime.factory,
             nChameneos,
             meetings
           ),
@@ -563,7 +576,7 @@ object Benchmark {
     println(" (Done)")
 
     // Cleanup and hut down the actor system
-    ActorChannel.cleanup()
+    runtime.cleanup()
     as.terminate()
 
     for (b <- benchmarks) yield BenchmarkResult(b.title, b.results.iterator)

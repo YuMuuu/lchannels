@@ -80,13 +80,13 @@ class LocalIn[+T](val future: Future[T]) extends medium.In[Local, T] {
 /** Local output channel endpoint, usually created via [[LocalChannel.factory]].
   */
 class LocalOut[-T](p: Promise[T]) extends medium.Out[Local, T] {
-  override def promise[U <: T] = {
+  override def promise[U <: T]: Promise[U] = {
     // The following cast is safe: the returned promise can only
     // be completed with U-typed values, which are also T-typed
     p.asInstanceOf[Promise[U]]
   }
 
-  override def create[U]() = LocalChannel.factory[U]()
+  override def create[U](): (LocalIn[U], LocalOut[U]) = LocalChannel.factory[U]()
 
   override def send(msg: T): Unit = {
     promise.success(msg)

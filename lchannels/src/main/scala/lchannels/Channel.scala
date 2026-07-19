@@ -48,18 +48,26 @@ class AlreadyUsed(message: String = "I/O endpoint already used")
 
 /** Base abstract class for linear input channel endpoints. */
 abstract class In[+T] extends Channel[Receive] {
+  @SuppressWarnings(Array("org.wartremover.warts.Null"))
   private var _future: Future[_] = null // Will actually be Future[T]
   /** Return a future that will be completed when the channel endpoint receives
     * a value, or incurs in an input error.
     */
-  def future(implicit ec: ExecutionContext) = synchronized {
-    if (_future == null) {
-      // FIXME: maybe the duration below should be a parameter (implicit?)
-      _future = Future { receive(Duration.Inf) }
-    }
-    // This cast is safe: the returned future only retrieves a T-typed value
-    _future.asInstanceOf[Future[T]]
+  def future(implicit ec: ExecutionContext): Future[T] = {
+    future(Duration.Inf)
   }
+
+  /** Return a future that will be completed when the channel endpoint receives
+    * a value before the given timeout, or incurs in an input error.
+    */
+  def future(atMost: Duration)(implicit ec: ExecutionContext): Future[T] =
+    synchronized {
+      if (_future == null) {
+        _future = Future { receive(atMost) }
+      }
+      // This cast is safe: the returned future only retrieves a T-typed value
+      _future.asInstanceOf[Future[T]]
+    }
 
   /** Receive and return a message, blocking until its arrival.
     *
@@ -172,13 +180,14 @@ abstract class In[+T] extends Channel[Receive] {
 
 /** Base abstract class for output channel endpoints. */
 abstract class Out[-T] extends Channel[Send] {
+  @SuppressWarnings(Array("org.wartremover.warts.Null"))
   private var _promise: Promise[_] = null // Will actually be Promise[T]
   /** Return a promise that, once completed with a value `v`, causes `v` to be
     * sent along this channel endpoint.
     */
-  def promise[U <: T] = synchronized {
+  def promise[U <: T]: Promise[U] = synchronized {
     if (_promise == null) {
-      _promise = Promise[Any] // Will be actually used as a Promise[T]
+      _promise = Promise[Any]() // Will be actually used as a Promise[T]
     }
     // The following cast is safe: the returned promise can only
     // be completed with U-typed values, which are also T-typed
@@ -222,7 +231,7 @@ abstract class Out[-T] extends Channel[Send] {
   def send(msg: T): Unit
 
   /** Alias for [[send]]. */
-  def !(msg: T) = send(msg)
+  def !(msg: T): Unit = send(msg)
 
   /** Create a pair of `U`-typed channel endpoints `(i,o)`, send the return
     * value of `f(i)`, and return `o`.

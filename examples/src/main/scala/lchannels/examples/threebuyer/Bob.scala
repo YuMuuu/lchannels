@@ -112,30 +112,33 @@ object Actor extends App {
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   import com.typesafe.config.ConfigFactory
-  import org.apache.pekko.actor.ActorSystem
+  import org.apache.pekko.actor.typed.ActorSystem
+  import org.apache.pekko.actor.typed.SpawnProtocol
 
   import binary.actor.{ConnectBob, ConnectCarol}
 
   val config = ConfigFactory.load() // Loads resources/application.conf
-  implicit val as: ActorSystem = ActorSystem(
-    "ThreeBuyerBobSys",
-    config = Some(config.getConfig("ThreeBuyerBobSys")),
-    defaultExecutionContext = Some(global)
-  )
+  implicit val as: ActorSystem[SpawnProtocol.Command] =
+    ActorSystem[SpawnProtocol.Command](
+      SpawnProtocol(),
+      "ThreeBuyerBobSys",
+      config.getConfig("ThreeBuyerBobSys")
+    )
 
-  ActorChannel.setDefaultEC(global)
-  ActorChannel.setDefaultAS(as)
+  implicit val runtime: ActorChannelRuntime = ActorChannelRuntime(as, global)
 
   implicit val timeout: FiniteDuration = 60.seconds
 
-  val sellerPath = "pekko://ThreeBuyerSellerSys@127.0.0.1:31350/user/bob"
+  val sellerPath =
+    "pekko://ThreeBuyerSellerSys@127.0.0.1:31350/user/lchannels/bob"
   println(s"[*] Connecting to ${sellerPath.toString}...")
   val c: Out[ConnectBob] = ActorOut[ConnectBob](sellerPath)
   val c2 = c !! ConnectBob() _
 
   def connector(logger: String => Unit) = {
     // Path where Carol is waiting for Bob's connection
-    val carolPath = "pekko://ThreeBuyerCarolSys@127.0.0.1:31353/user/bob"
+    val carolPath =
+      "pekko://ThreeBuyerCarolSys@127.0.0.1:31353/user/lchannels/bob"
     logger(s"Connecting to ${carolPath.toString}...")
     val c: Out[ConnectCarol] = ActorOut[ConnectCarol](carolPath)
     c !! ConnectCarol() _

@@ -95,7 +95,7 @@ abstract class SocketManager(socket: JSocket) {
   def close(): Unit = { socket.close() }
 
   /** Alias for [[close]]. */
-  final override def finalize() = close()
+  final override def finalize(): Unit = close()
 
   /** Create a pair of I/O socket-based channel endpoints, reading from `in` and
     * writing to `out`.
@@ -113,11 +113,11 @@ abstract class SocketManager(socket: JSocket) {
   */
 protected[lchannels] class SocketIn[T](sktm: SocketManager)
     extends medium.In[Socket, T] {
-  override def receive() = {
+  override def receive(): T = {
     sktm.destreamer().asInstanceOf[T]
   }
 
-  override def receive(implicit atMost: Duration) = {
+  override def receive(implicit atMost: Duration): T = {
     try {
       sktm.destreamer(atMost).asInstanceOf[T]
     } catch {
@@ -145,9 +145,9 @@ object SocketIn {
   * [[[StreamOut$.apply* companion object]]] or via [[StreamManager.factory]].
   */
 class SocketOut[-T](sktm: SocketManager) extends medium.Out[Socket, T] {
-  override def send(x: T) = sktm.streamer(x)
+  override def send(x: T): Unit = sktm.streamer(x)
 
-  override def create[U]() = sktm.factory()
+  override def create[U](): (SocketIn[U], SocketOut[U]) = sktm.factory()
 }
 
 /** Stream-based output channel endpoint. */
@@ -158,7 +158,7 @@ object SocketOut {
     * @param strm
     *   Socket manager owning the input/output data streams
     */
-  def apply[T](sktm: SocketManager) = {
+  def apply[T](sktm: SocketManager): SocketOut[T] = {
     new SocketOut[T](sktm)
   }
 }
